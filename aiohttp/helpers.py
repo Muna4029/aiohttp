@@ -204,7 +204,14 @@ def netrc_from_env() -> netrc.netrc | None:
         netrc_path = Path(netrc_env)
     else:
         try:
-            home_dir = Path.home()
+            # First check HOME environment variable (works on all platforms)
+            # This is needed because Path.home() uses USERPROFILE on Windows
+            # which may not match the HOME variable used in tests
+            home_env = os.environ.get("HOME")
+            if home_env is not None:
+                home_dir = Path(home_env)
+            else:
+                home_dir = Path.home()
         except RuntimeError as e:
             # if pathlib can't resolve home, it may raise a RuntimeError
             client_logger.debug(
