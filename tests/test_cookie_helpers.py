@@ -1605,3 +1605,80 @@ def test_unquote_compatibility_with_simplecookie(test_value: str) -> None:
         f"our={_unquote(test_value)!r}, "
         f"SimpleCookie={simplecookie_unquote(test_value)!r}"
     )
+
+
+from unittest.mock import patch
+
+
+def test_preserve_morsel_with_coded_value_fallback_on_cookie_error() -> None:
+    """Test preserve_morsel_with_coded_value handles CookieError from __setstate__.
+
+    In Python 3.13+, Morsel.__setstate__ may raise CookieError for certain values.
+    This test verifies that the fallback to direct attribute assignment works.
+    """
+
+    def mock_setstate_that_raises(self: Morsel[str], state: dict[str, str]) -> None:
+        raise CookieError("Simulated CookieError in Python 3.13+")
+
+    cookie: Morsel[str] = Morsel()
+    cookie.set("test_cookie", "decoded value", "encoded%20value")
+
+    with patch.object(
+        Morsel, "__setstate__", mock_setstate_that_raises  # type: ignore[attr-defined]
+    ):
+        result = preserve_morsel_with_coded_value(cookie)
+
+    # Check that all values are preserved even when __setstate__ raises CookieError
+    assert result.key == "test_cookie"
+    assert result.value == "decoded value"
+    assert result.coded_value == "encoded%20value"
+
+
+def test_parse_set_cookie_headers_fallback_on_cookie_error() -> None:
+    """Test parse_set_cookie_headers handles CookieError from __setstate__.
+
+    In Python 3.13+, Morsel.__setstate__ may raise CookieError for certain values.
+    This test verifies that the fallback to direct attribute assignment works.
+    """
+
+    def mock_setstate_that_raises(self: Morsel[str], state: dict[str, str]) -> None:
+        raise CookieError("Simulated CookieError in Python 3.13+")
+
+    headers = ["test=value"]
+
+    with patch.object(
+        Morsel, "__setstate__", mock_setstate_that_raises  # type: ignore[attr-defined]
+    ):
+        result = parse_set_cookie_headers(headers)
+
+    assert len(result) == 1
+    key, morsel = result[0]
+    assert key == "test"
+    assert morsel.key == "test"
+    assert morsel.value == "value"
+    assert morsel.coded_value == "value"
+
+
+def test_parse_cookie_header_fallback_on_cookie_error() -> None:
+    """Test parse_cookie_header handles CookieError from __setstate__.
+
+    In Python 3.13+, Morsel.__setstate__ may raise CookieError for certain values.
+    This test verifies that the fallback to direct attribute assignment works.
+    """
+
+    def mock_setstate_that_raises(self: Morsel[str], state: dict[str, str]) -> None:
+        raise CookieError("Simulated CookieError in Python 3.13+")
+
+    cookie_string = "test=value"
+
+    with patch.object(
+        Morsel, "__setstate__", mock_setstate_that_raises  # type: ignore[attr-defined]
+    ):
+        result = parse_cookie_header(cookie_string)
+
+    assert len(result) == 1
+    key, morsel = result[0]
+    assert key == "test"
+    assert morsel.key == "test"
+    assert morsel.value == "value"
+    assert morsel.coded_value == "value"
