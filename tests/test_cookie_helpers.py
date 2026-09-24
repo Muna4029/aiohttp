@@ -5,6 +5,8 @@ from http.cookies import (
     CookieError,
     Morsel,
     SimpleCookie,
+)
+from http.cookies import (
     _unquote as simplecookie_unquote,
 )
 
@@ -25,9 +27,9 @@ def test_known_attrs_is_superset_of_morsel_reserved() -> None:
     morsel_reserved = {attr.lower() for attr in Morsel._reserved}  # type: ignore[attr-defined]
 
     # _COOKIE_KNOWN_ATTRS should be a superset of morsel_reserved
-    assert (
-        helpers._COOKIE_KNOWN_ATTRS >= morsel_reserved
-    ), f"_COOKIE_KNOWN_ATTRS is missing: {morsel_reserved - helpers._COOKIE_KNOWN_ATTRS}"
+    assert helpers._COOKIE_KNOWN_ATTRS >= morsel_reserved, (
+        f"_COOKIE_KNOWN_ATTRS is missing: {morsel_reserved - helpers._COOKIE_KNOWN_ATTRS}"
+    )
 
 
 def test_bool_attrs_is_superset_of_morsel_flags() -> None:
@@ -36,9 +38,9 @@ def test_bool_attrs_is_superset_of_morsel_flags() -> None:
     morsel_flags = {attr.lower() for attr in Morsel._flags}  # type: ignore[attr-defined]
 
     # _COOKIE_BOOL_ATTRS should be a superset of morsel_flags
-    assert (
-        helpers._COOKIE_BOOL_ATTRS >= morsel_flags
-    ), f"_COOKIE_BOOL_ATTRS is missing: {morsel_flags - helpers._COOKIE_BOOL_ATTRS}"
+    assert helpers._COOKIE_BOOL_ATTRS >= morsel_flags, (
+        f"_COOKIE_BOOL_ATTRS is missing: {morsel_flags - helpers._COOKIE_BOOL_ATTRS}"
+    )
 
 
 def test_preserve_morsel_with_coded_value() -> None:
@@ -138,7 +140,7 @@ def test_parse_set_cookie_headers_special_chars_in_names() -> None:
     for i, (name, morsel) in enumerate(result):
         assert name == expected_names[i]
         assert morsel.key == expected_names[i]
-        assert morsel.value == f"value{i+1}"
+        assert morsel.value == f"value{i + 1}"
 
 
 def test_parse_set_cookie_headers_invalid_names() -> None:
@@ -512,11 +514,11 @@ def test_parse_set_cookie_headers_partitioned() -> None:
 
     # All cookies should have partitioned=True
     for i, (name, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is True
-        ), f"Cookie {i+1} should have partitioned=True"
-        assert name == f"cookie{i+1}"
-        assert morsel.value == f"value{i+1}"
+        assert morsel.get("partitioned") is True, (
+            f"Cookie {i + 1} should have partitioned=True"
+        )
+        assert name == f"cookie{i + 1}"
+        assert morsel.value == f"value{i + 1}"
 
     # Cookie 4 should also have secure and httponly
     assert result[3][1].get("secure") is True
@@ -546,9 +548,9 @@ def test_parse_set_cookie_headers_partitioned_case_insensitive() -> None:
 
     # All should be recognized as partitioned
     for i, (_, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is True
-        ), f"Cookie {i+1} should have partitioned=True"
+        assert morsel.get("partitioned") is True, (
+            f"Cookie {i + 1} should have partitioned=True"
+        )
 
 
 def test_parse_set_cookie_headers_partitioned_not_set() -> None:
@@ -583,9 +585,9 @@ def test_parse_set_cookie_headers_partitioned_not_set_if_no_support() -> None:
 
     assert len(result) == 3
     for i, (_, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is None
-        ), f"Cookie {i+1} should not have partitioned flag"
+        assert morsel.get("partitioned") is None, (
+            f"Cookie {i + 1} should not have partitioned flag"
+        )
 
 
 def test_parse_set_cookie_headers_partitioned_with_other_attrs_manual() -> None:
@@ -1632,3 +1634,106 @@ def test_unquote_compatibility_with_simplecookie(test_value: str) -> None:
         f"our={_unquote(test_value)!r}, "
         f"SimpleCookie={simplecookie_unquote(test_value)!r}"
     )
+
+
+def test_set_morsel_state_with_cookie_error_fallback() -> None:
+    """Test that _set_morsel_state falls back to direct assignment when CookieError is raised.
+
+    This is a regression test for Python 3.13+ where Morsel validation may reject
+    certain values (e.g., control characters) with CookieError.
+    """
+    from unittest.mock import patch
+
+    from aiohttp._cookie_helpers import _set_morsel_state
+
+    # Create a morsel and test the fallback
+    morsel: Morsel[str] = Morsel()
+
+    # Mock __setstate__ to raise CookieError (simulating Python 3.13+ validation)
+    with patch.object(
+        Morsel,
+        "__setstate__",
+        side_effect=CookieError("Simulated Python 3.13+ validation error"),
+    ):
+        _set_morsel_state(morsel, "test_key", "test_value", "coded_test_value")
+
+    # Verify the values were set via fallback
+    assert morsel.key == "test_key"
+    assert morsel.value == "test_value"
+    assert morsel.coded_value == "coded_test_value"
+
+
+def test_preserve_morsel_with_coded_value_cookie_error_fallback() -> None:
+    """Test preserve_morsel_with_coded_value handles CookieError from __setstate__.
+
+    This is a regression test for Python 3.13+ where Morsel validation may reject
+    certain values with CookieError.
+    """
+    from unittest.mock import patch
+
+    # Create a cookie with a coded_value different from value
+    cookie: Morsel[str] = Morsel()
+    cookie.set("test_cookie", "decoded value", "encoded%20value")
+
+    # Mock __setstate__ to raise CookieError
+    with patch.object(
+        Morsel,
+        "__setstate__",
+        side_effect=CookieError("Simulated Python 3.13+ validation error"),
+    ):
+        result = preserve_morsel_with_coded_value(cookie)
+
+    # Check that all values are preserved via fallback
+    assert result.key == "test_cookie"
+    assert result.value == "decoded value"
+    assert result.coded_value == "encoded%20value"
+
+
+def test_parse_set_cookie_headers_cookie_error_fallback() -> None:
+    """Test parse_set_cookie_headers handles CookieError from __setstate__.
+
+    This is a regression test for Python 3.13+ where Morsel validation may reject
+    certain values with CookieError.
+    """
+    from unittest.mock import patch
+
+    # Mock __setstate__ to raise CookieError
+    with patch.object(
+        Morsel,
+        "__setstate__",
+        side_effect=CookieError("Simulated Python 3.13+ validation error"),
+    ):
+        result = parse_set_cookie_headers(["session=abc123"])
+
+    # Verify the cookie was parsed correctly via fallback
+    assert len(result) == 1
+    key, morsel = result[0]
+    assert key == "session"
+    assert morsel.key == "session"
+    assert morsel.value == "abc123"
+    assert morsel.coded_value == "abc123"
+
+
+def test_parse_cookie_header_cookie_error_fallback() -> None:
+    """Test parse_cookie_header handles CookieError from __setstate__.
+
+    This is a regression test for Python 3.13+ where Morsel validation may reject
+    certain values with CookieError.
+    """
+    from unittest.mock import patch
+
+    # Mock __setstate__ to raise CookieError
+    with patch.object(
+        Morsel,
+        "__setstate__",
+        side_effect=CookieError("Simulated Python 3.13+ validation error"),
+    ):
+        result = parse_cookie_header("session=abc123")
+
+    # Verify the cookie was parsed correctly via fallback
+    assert len(result) == 1
+    key, morsel = result[0]
+    assert key == "session"
+    assert morsel.key == "session"
+    assert morsel.value == "abc123"
+    assert morsel.coded_value == "abc123"

@@ -7,14 +7,14 @@ These are not part of the public API and may change without notice.
 
 import re
 from collections.abc import Sequence
-from http.cookies import Morsel
+from http.cookies import CookieError, Morsel
 from typing import cast
 
 from .log import internal_logger
 
 __all__ = (
-    "parse_set_cookie_headers",
     "parse_cookie_header",
+    "parse_set_cookie_headers",
     "preserve_morsel_with_coded_value",
 )
 
@@ -82,6 +82,36 @@ _COOKIE_PATTERN = re.compile(
 )
 
 
+def _set_morsel_state(
+    morsel: Morsel[str], key: str, value: str, coded_value: str
+) -> None:
+    """
+    Set Morsel state with CookieError fallback for Python 3.13+ compatibility.
+
+    Python 3.13+ Morsel validation may reject certain values (e.g., control characters)
+    with CookieError. This helper tries __setstate__ first (which bypasses validation
+    for already-validated state), and falls back to direct attribute assignment if
+    CookieError is raised.
+
+    Args:
+        morsel: The Morsel object to set state on
+        key: The cookie key
+        value: The decoded cookie value
+        coded_value: The original encoded cookie value
+    """
+    try:
+        # Try __setstate__ first - this bypasses validation for already-validated state
+        morsel.__setstate__(  # type: ignore[attr-defined]
+            {"key": key, "value": value, "coded_value": coded_value}
+        )
+    except CookieError:
+        # Fallback for Python 3.13+ where Morsel validation may reject values
+        # Set attributes directly, bypassing validation
+        morsel._key = key  # type: ignore[attr-defined]
+        morsel._value = value  # type: ignore[attr-defined]
+        morsel._coded_value = coded_value  # type: ignore[attr-defined]
+
+
 def preserve_morsel_with_coded_value(cookie: Morsel[str]) -> Morsel[str]:
     """
     Preserve a Morsel's coded_value exactly as received from the server.
@@ -106,9 +136,7 @@ def preserve_morsel_with_coded_value(cookie: Morsel[str]) -> Morsel[str]:
     # bypass validation and set already validated state. This is more stable than
     # setting protected attributes directly and unlikely to change since it would
     # break pickling.
-    mrsl_val.__setstate__(  # type: ignore[attr-defined]
-        {"key": cookie.key, "value": cookie.value, "coded_value": cookie.coded_value}
-    )
+    _set_morsel_state(mrsl_val, cookie.key, cookie.value, cookie.coded_value)
     return mrsl_val
 
 
@@ -199,13 +227,8 @@ def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
         # Create new morsel
         morsel: Morsel[str] = Morsel()
         # Preserve the original value as coded_value (with quotes if present)
-        # We use __setstate__ instead of the public set() API because it allows us to
-        # bypass validation and set already validated state. This is more stable than
-        # setting protected attributes directly and unlikely to change since it would
-        # break pickling.
-        morsel.__setstate__(  # type: ignore[attr-defined]
-            {"key": key, "value": _unquote(value), "coded_value": value}
-        )
+        # Use helper function to handle CookieError fallback for Python 3.13+
+        _set_morsel_state(morsel, key, _unquote(value), value)
 
         cookies.append((key, morsel))
 
@@ -290,13 +313,8 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
                     # Create new morsel
                     current_morsel = Morsel()
                     # Preserve the original value as coded_value (with quotes if present)
-                    # We use __setstate__ instead of the public set() API because it allows us to
-                    # bypass validation and set already validated state. This is more stable than
-                    # setting protected attributes directly and unlikely to change since it would
-                    # break pickling.
-                    current_morsel.__setstate__(  # type: ignore[attr-defined]
-                        {"key": key, "value": _unquote(value), "coded_value": value}
-                    )
+                    # Use helper function to handle CookieError fallback for Python 3.13+
+                    _set_morsel_state(current_morsel, key, _unquote(value), value)
                     parsed_cookies.append((key, current_morsel))
                     morsel_seen = True
             else:
