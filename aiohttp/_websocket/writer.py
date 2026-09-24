@@ -1,10 +1,11 @@
 """WebSocket protocol versions 13 and 8."""
+from __future__ import annotations
 
 import asyncio
 import random
 import sys
 from functools import partial
-from typing import Final, Optional, Set, Union
+from typing import Final
 
 from ..base_protocol import BaseProtocol
 from ..client_exceptions import ClientConnectionResetError
@@ -67,12 +68,12 @@ class WebSocketWriter:
         self._closing = False
         self._limit = limit
         self._output_size = 0
-        self._compressobj: Optional[ZLibCompressor] = None
+        self._compressobj: ZLibCompressor | None = None
         self._send_lock = asyncio.Lock()
-        self._background_tasks: Set[asyncio.Task[None]] = set()
+        self._background_tasks: set[asyncio.Task[None]] = set()
 
     async def send_frame(
-        self, message: bytes, opcode: int, compress: Optional[int] = None
+        self, message: bytes, opcode: int, compress: int | None = None
     ) -> None:
         """Send a frame over the websocket with message as its payload."""
         if self._closing and not (opcode & WSMsgType.CLOSE):
@@ -171,7 +172,7 @@ class WebSocketWriter:
 
         self._output_size += header_len + msg_length
 
-    def _get_compressor(self, compress: Optional[int]) -> ZLibCompressor:
+    def _get_compressor(self, compress: int | None) -> ZLibCompressor:
         """Get or create a compressor object for the given compression level."""
         if compress:
             # Do not set self._compress if compressing is for this frame
@@ -189,7 +190,7 @@ class WebSocketWriter:
         return self._compressobj
 
     def _send_compressed_frame_sync(
-        self, message: bytes, opcode: int, compress: Optional[int]
+        self, message: bytes, opcode: int, compress: int | None
     ) -> None:
         """
         Synchronous send for small compressed frames.
@@ -217,7 +218,7 @@ class WebSocketWriter:
         )
 
     async def _send_compressed_frame_async_locked(
-        self, message: bytes, opcode: int, compress: Optional[int]
+        self, message: bytes, opcode: int, compress: int | None
     ) -> None:
         """
         Async send for large compressed frames with lock.
@@ -250,7 +251,7 @@ class WebSocketWriter:
                 0x40,
             )
 
-    async def close(self, code: int = 1000, message: Union[bytes, str] = b"") -> None:
+    async def close(self, code: int = 1000, message: bytes | str = b"") -> None:
         """Close the websocket, sending the specified code and message."""
         if isinstance(message, str):
             message = message.encode("utf-8")
