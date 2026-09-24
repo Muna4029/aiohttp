@@ -1,5 +1,6 @@
 """Tests for client middleware."""
 
+import asyncio
 import json
 import socket
 from typing import NoReturn
@@ -22,6 +23,28 @@ from aiohttp.client_proto import ResponseHandler
 from aiohttp.pytest_plugin import AiohttpServer
 from aiohttp.resolver import ThreadedResolver
 from aiohttp.tracing import Trace
+
+async def _wait_for_server(host: str, port: int, timeout: float = 5.0) -> None:
+    """Wait for server to be ready to accept connections.
+    
+    This helps avoid intermittent ConnectionRefusedError on Windows where
+    the server socket may not be fully bound when the client tries to connect.
+    """
+    start = asyncio.get_event_loop().time()
+    last_error = None
+    while asyncio.get_event_loop().time() - start < timeout:
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=1.0
+            )
+            writer.close()
+            await writer.wait_closed()
+            return
+        except (ConnectionRefusedError, OSError) as e:
+            last_error = e
+            await asyncio.sleep(0.1)
+    raise last_error or ConnectionRefusedError(f"Server not ready at {host}:{port}")
 
 
 class BlockedByMiddleware(ClientError):
@@ -949,6 +972,10 @@ async def test_middleware_uses_session_avoids_recursion_with_path_check(
     main_app.router.add_get("/{path:.*}", main_handler)
     main_server = await aiohttp_server(main_app)
 
+    # Wait for servers to be ready to avoid intermittent ConnectionRefusedError on Windows
+    await _wait_for_server("localhost", log_server.port)
+    await _wait_for_server("localhost", main_server.port)
+
     async def log_middleware(
         request: ClientRequest, handler: ClientHandlerType
     ) -> ClientResponse:
@@ -1017,6 +1044,10 @@ async def test_middleware_uses_session_avoids_recursion_with_disabled_middleware
     main_app = web.Application()
     main_app.router.add_get("/{path:.*}", main_handler)
     main_server = await aiohttp_server(main_app)
+
+    # Wait for servers to be ready to avoid intermittent ConnectionRefusedError on Windows
+    await _wait_for_server("localhost", log_server.port)
+    await _wait_for_server("localhost", main_server.port)
 
     async def log_middleware(
         request: ClientRequest, handler: ClientHandlerType
