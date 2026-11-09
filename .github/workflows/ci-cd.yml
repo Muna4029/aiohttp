@@ -171,6 +171,9 @@ jobs:
     - name: Update pip, wheel, setuptools, build, twine
       run: |
         python -m pip install -U pip wheel setuptools build twine
+    - name: Install nasm for PyPy
+      if: ${{ startsWith(matrix.pyver, 'pypy') }}
+      run: sudo apt-get install -y nasm
     - name: Install dependencies
       env:
         DEPENDENCY_GROUP: test${{ endsWith(matrix.pyver, 't') && '-ft' || '' }}
@@ -225,7 +228,6 @@ jobs:
         python -m coverage xml
 
   check:
-    # Aggregator job for branch protection / CI status
     if: always()
     needs:
     - lint
