@@ -122,7 +122,7 @@ def test_empty_text_205() -> None:
 
 def test_empty_text_304() -> None:
     resp = web.HTTPNoContent()
-    resp.text is None
+    assert resp.text is None
 
 
 def test_no_link_451() -> None:
@@ -157,6 +157,8 @@ def test_link_url_451() -> None:
 def test_link_CRLF_451() -> None:
     resp = web.HTTPUnavailableForLegalReasons(link="http://warning.or.kr/\r\n")
     assert "\r\n" not in resp.headers["Link"]
+    assert resp.link == URL("http://warning.or.kr/")
+    assert resp.headers["Link"] == '<http://warning.or.kr/>; rel="blocked-by"'
 
 
 def test_HTTPException_retains_cause() -> None:
@@ -196,7 +198,7 @@ class TestHTTPOk:
             content_type="custom",
         )
         resp.foo = "bar"  # type: ignore[attr-defined]
-        for proto in range(2, pickle.HIGHEST_PROTOCOL + 1):
+        # Note: 'foo' is not defined in the class, consider removing this line.        # Note: 'foo' is not defined in the class, consider removing this line.        for proto in range(2, pickle.HIGHEST_PROTOCOL + 1):
             pickled = pickle.dumps(resp, proto)
             resp2 = pickle.loads(pickled)
             assert resp2.text == "text"

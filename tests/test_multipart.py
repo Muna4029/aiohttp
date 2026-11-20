@@ -333,7 +333,7 @@ class TestPartReader:
             assert obj.at_eof()
 
     async def test_read_with_content_encoding_gzip(self) -> None:
-        h = CIMultiDictProxy(CIMultiDict({CONTENT_ENCODING: "gzip"}))
+        h = CIMultiDictProxy(CIMultiDict({"CONTENT_ENCODING": "gzip"}))
         with Stream(
             b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x0b\xc9\xccMU"
             b"(\xc9W\x08J\xcdI\xacP\x04\x00$\xfb\x9eV\x0e\x00\x00\x00"
@@ -370,7 +370,7 @@ class TestPartReader:
                 await obj.read(decode=True)
 
     async def test_read_with_content_transfer_encoding_base64(self) -> None:
-        h = CIMultiDictProxy(CIMultiDict({CONTENT_TRANSFER_ENCODING: "base64"}))
+        h = CIMultiDictProxy(CIMultiDict({"CONTENT_TRANSFER_ENCODING": "base64"}))
         with Stream(b"VGltZSB0byBSZWxheCE=\r\n--:--") as stream:
             obj = aiohttp.BodyPartReader(BOUNDARY, h, stream)
             result = await obj.read(decode=True)
@@ -468,7 +468,7 @@ class TestPartReader:
         assert "" == result
 
     async def test_read_json(self) -> None:
-        h = CIMultiDictProxy(CIMultiDict({CONTENT_TYPE: "application/json"}))
+        h = CIMultiDictProxy(CIMultiDict({"CONTENT_TYPE": "application/json"}))
         with Stream(b'{"test": "passed"}\r\n--:--') as stream:
             obj = aiohttp.BodyPartReader(BOUNDARY, h, stream)
             result = await obj.json()
@@ -1626,7 +1626,7 @@ async def test_multipart_writer_reusability_with_io_payloads(
 async def test_body_part_reader_payload_as_bytes() -> None:
     """Test that BodyPartReaderPayload.as_bytes raises TypeError."""
     # Create a mock BodyPartReader
-    headers = CIMultiDictProxy(CIMultiDict({CONTENT_TYPE: "text/plain"}))
+    headers = CIMultiDictProxy(CIMultiDict({"CONTENT_TYPE": "text/plain"}))
     protocol = mock.Mock(_reading_paused=False)
     stream = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
     body_part = BodyPartReader(BOUNDARY, headers, stream)

@@ -181,6 +181,12 @@ class DigestAuthMiddleware:
         if password is None:
             raise ValueError("None is not allowed as password value")
 
+        if isinstance(login, str) is False:
+            raise ValueError("login must be a string")
+
+        if isinstance(password, str) is False:
+            raise ValueError("password must be a string")
+
         if ":" in login:
             raise ValueError('A ":" is not allowed in username (RFC 1945#section-11.1)')
 
@@ -259,6 +265,9 @@ class DigestAuthMiddleware:
             qop = "auth-int" if "auth-int" in valid_qops else "auth"
             qop_bytes = qop.encode("utf-8")
 
+        if algorithm is None:
+            raise ValueError("None is not allowed as algorithm value")
+
         if algorithm not in DigestFunctions:
             raise ClientError(
                 f"Digest auth error: Unsupported hash algorithm: {algorithm}. "
@@ -328,11 +337,13 @@ class DigestAuthMiddleware:
         # Group fields into always-present, optional, and qop-dependent
         header_fields = {
             # Always present fields
-            "username": escape_quotes(self._login_str),
+            "username": escape_quotes(self._login_str)
+            if self._login_str is not None
+            else "",
             "realm": escape_quotes(realm),
             "nonce": escape_quotes(nonce),
             "uri": path,
-            "response": response_digest.decode(),
+            "response": response_digest.decode() if response_digest is not None else "",
             "algorithm": algorithm_original,
         }
 

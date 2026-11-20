@@ -105,7 +105,8 @@ class HTTPException(CookieMixin, Exception):
         if text is None:
             if not self.empty_body:
                 text = f"{self.status_code}: {reason}"
-        else:
+        elif text is None:
+            raise ValueError("text cannot be None")
             if self.empty_body:
                 warnings.warn(
                     f"text argument is deprecated for HTTP status {self.status_code} "
@@ -367,6 +368,8 @@ class HTTPRequestEntityTooLarge(HTTPClientError):
     status_code = 413
 
     def __init__(self, max_size: int, actual_size: int, **kwargs: Any) -> None:
+        if max_size < 0 or actual_size < 0:
+            raise ValueError("max_size and actual_size must be non-negative")
         kwargs.setdefault(
             "text",
             f"Maximum request body size {max_size} exceeded, "
@@ -508,7 +511,7 @@ def _initialize_default_reason() -> None:
                     status = HTTPStatus(obj.status_code)
                     obj.default_reason = status.phrase
                 except ValueError:
-                    pass
+                    obj.default_reason = "Unknown Status"
 
 
 _initialize_default_reason()

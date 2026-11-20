@@ -289,7 +289,7 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
     @under_cached_property
     def peername(
         self,
-    ) -> str | tuple[str, int, int, int] | tuple[str, int] | None:
+    ) -> Optional[Union[str, tuple[str, int, int, int], tuple[str, int]]]:
         """Return peername if available."""
         return (
             None
@@ -298,10 +298,10 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
         )
 
     @property
-    def keepalive_timeout(self) -> float:
+    def keepalive_timeout(self) -> Optional[float]:
         return self._keepalive_timeout
 
-    async def shutdown(self, timeout: float | None = 15.0) -> None:
+    async def shutdown(self, timeout: Optional[float] = 15.0) -> None:
         """Do worker process exit preparations.
 
         We need to clean up everything and stop accepting requests.
@@ -368,7 +368,7 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
             task = loop.create_task(self.start())
         self._task_handler = task
 
-    def connection_lost(self, exc: BaseException | None) -> None:
+    def connection_lost(self, exc: Optional[BaseException]) -> None:
         if self._manager is None:
             return
         self._manager.connection_lost(self, exc)
@@ -413,7 +413,7 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
     def eof_received(self) -> None:
         pass
 
-    def data_received(self, data: bytes) -> None:
+    def data_received(self, data: Optional[bytes]) -> None:
         if self._force_close or self._close:
             return
         # parse http messages
@@ -714,6 +714,7 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
         except AttributeError:
             if resp is None:
                 self.log_exception("Missing return statement on request handler")  # type: ignore[unreachable]
+                return
             else:
                 self.log_exception(
                     "Web-handler should return a response instance, " f"got {resp!r}"
@@ -722,6 +723,7 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
             resp = Response(
                 status=exc.status, reason=exc.reason, text=exc.text, headers=exc.headers
             )
+            return resp
             prepare_meth = resp.prepare
         try:
             await prepare_meth(request)

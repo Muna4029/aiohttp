@@ -38,7 +38,7 @@ def build_autobahn_testsuite() -> Generator[None, None, None]:
         docker.image.remove(x="autobahn-testsuite")
 
 
-def get_failed_tests(report_path: str, name: str) -> list[dict[str, Any]]:
+def get_failed_tests(report_path: str, name: str) -> list[dict[str, Any] | None]:
     path = Path(report_path)
     result_summary = json.loads((path / "index.json").read_text())[name]
     failed_messages = []

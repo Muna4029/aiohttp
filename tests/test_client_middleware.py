@@ -79,7 +79,7 @@ async def test_client_middleware_retry(aiohttp_server: AiohttpServer) -> None:
             response = await handler(request)
             if response.ok:
                 return response
-        assert False, "not reachable in test"
+        raise RuntimeError("not reachable in test")
 
     app = web.Application()
     app.router.add_get("/", handler)
@@ -350,11 +350,11 @@ async def test_client_middleware_multi_step_auth(aiohttp_server: AiohttpServer) 
                     middleware_state["step"] = 2
                     continue
                 else:
-                    assert False, "Should not reach here"
+                    raise RuntimeError("Should not reach here")
 
             return response
         # This should not be reached but keeps mypy happy
-        assert False, "Should not reach here"
+        raise RuntimeError("Should not reach here")
 
     app = web.Application()
     app.router.add_get("/", handler)
@@ -438,7 +438,7 @@ async def test_build_client_middlewares_empty() -> None:
 
     async def handler(request: ClientRequest) -> NoReturn:
         """Dummy handler."""
-        assert False
+        raise RuntimeError("Dummy handler should not be called")
 
     # Test empty case
     result = build_client_middlewares(handler, ())
@@ -468,7 +468,9 @@ async def test_client_middleware_class_based_auth(
         auth_header = request.headers.get("Authorization")
         if auth_header == "Bearer test-token":
             return web.Response(text="Authenticated")
-        assert False, "Should not reach here - class auth should always have token"
+        raise RuntimeError(
+            "Should not reach here - class auth should always have token"
+        )
 
     app = web.Application()
     app.router.add_get("/", handler)

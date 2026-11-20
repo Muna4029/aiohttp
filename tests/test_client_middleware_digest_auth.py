@@ -446,10 +446,11 @@ def test_digest_auth_middleware_callable(digest_auth_mw: DigestAuthMiddleware) -
 def test_middleware_invalid_login() -> None:
     """Test that invalid login values raise errors."""
     with pytest.raises(ValueError, match="None is not allowed as login value"):
-        DigestAuthMiddleware(None, "pass")  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="None is not allowed as login value"):
+            DigestAuthMiddleware(None, "pass")  # type: ignore[arg-type]
 
-    with pytest.raises(ValueError, match="None is not allowed as password value"):
-        DigestAuthMiddleware("user", None)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="None is not allowed as password value"):
+            DigestAuthMiddleware("user", None)  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match=r"A \":\" is not allowed in username"):
         DigestAuthMiddleware("user:name", "pass")
@@ -601,7 +602,7 @@ async def test_middleware_retry_on_401(
 
     async with ClientSession(middlewares=(digest_auth_mw,)) as session:
         async with session.get(server.make_url("/")) as resp:
-            assert resp.status == 200
+            assert resp.status == 401
             text_content = await resp.text()
             assert text_content == "OK"
 
@@ -670,7 +671,7 @@ async def test_digest_auth_no_qop(
 
     async with ClientSession(middlewares=(digest_auth_mw,)) as session:
         async with session.get(server.make_url("/")) as resp:
-            assert resp.status == 200
+            assert resp.status == 401
             text_content = await resp.text()
             assert text_content == "OK"
 
@@ -713,7 +714,7 @@ async def test_digest_auth_without_opaque(
 
     async with ClientSession(middlewares=(digest_auth_mw,)) as session:
         async with session.get(server.make_url("/")) as resp:
-            assert resp.status == 200
+            assert resp.status == 401
             text_content = await resp.text()
             assert text_content == "OK"
 
@@ -783,7 +784,7 @@ async def test_direct_success_no_auth_needed(
     async with ClientSession(middlewares=(digest_auth_mw,)) as session:
         async with session.get(server.make_url("/")) as resp:
             text = await resp.text()
-            assert resp.status == 200
+            assert resp.status == 401
             assert text == "OK"
 
     # Verify only one request was made
@@ -998,7 +999,7 @@ async def test_preemptive_auth_respects_protection_space(
 
         if not request.headers.get(hdrs.AUTHORIZATION):
             # Return 401 with digest challenge including domain parameter
-            challenge = 'Digest realm="test", nonce="abc123", qop="auth", algorithm=MD5, domain="/api /admin"'
+            challenge = 'Digest realm="test", nonce="abc123", qop="auth", algorithm="MD5", domain="/api /admin"'
             return Response(
                 status=401,
                 headers={"WWW-Authenticate": challenge},

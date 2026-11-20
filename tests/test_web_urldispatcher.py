@@ -58,7 +58,7 @@ async def test_access_root_of_static_handler(
     status: int,
     prefix: str,
     request_path: str,
-    data: bytes | None,
+    data: Optional[bytes],
 ) -> None:
     # Tests the operation of static file server.
     # Try to access the root of static file server, and make

@@ -1,4 +1,3 @@
-import datetime
 import logging
 import platform
 import sys
@@ -43,7 +42,6 @@ def test_access_logger_format() -> None:
 
     *** TypeError: isinstance() arg 2 must be a class, type, or tuple of classes and types
 
-    (Pdb) from datetime import datetime
     (Pdb) isinstance(now, datetime)
     *** TypeError: isinstance() arg 2 must be a class, type, or tuple of classes and types
     (Pdb) datetime.__class__
@@ -297,11 +295,10 @@ async def test_logger_does_not_log_when_not_enabled(
         return web.Response()
 
     class Logger(AbstractAccessLogger):
-
         def log(
             self, request: web.BaseRequest, response: web.StreamResponse, time: float
         ) -> None:
-            self.logger.critical("This should not be logged")  # pragma: no cover
+            pass  # pragma: no cover
 
         @property
         def enabled(self) -> bool:
@@ -327,11 +324,10 @@ async def test_logger_set_to_none(
         return web.Response()
 
     class Logger(AbstractAccessLogger):
-
         def log(
             self, request: web.BaseRequest, response: web.StreamResponse, time: float
         ) -> None:
-            self.logger.critical("This should not be logged")  # pragma: no cover
+            pass  # pragma: no cover
 
     app = web.Application()
     app.router.add_get("/", handler)

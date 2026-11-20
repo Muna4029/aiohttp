@@ -26,15 +26,27 @@ except ImportError:
     getaddrinfo = False
 
 _AddrInfo4 = list[
-    tuple[socket.AddressFamily, None, socket.SocketKind, None, tuple[str, int]]
+    tuple[
+        socket.AddressFamily,
+        Optional[str],
+        socket.SocketKind,
+        Optional[int],
+        tuple[str, int],
+    ]
 ]
 _AddrInfo6 = list[
     tuple[
-        socket.AddressFamily, None, socket.SocketKind, None, tuple[str, int, int, int]
+        socket.AddressFamily,
+        Optional[str],
+        socket.SocketKind,
+        Optional[int],
+        tuple[str, int, int, int],
     ]
 ]
 _UnknownAddrInfo = list[
-    tuple[socket.AddressFamily, socket.SocketKind, int, str, tuple[int, bytes]]
+    tuple[
+        socket.AddressFamily, socket.SocketKind, int, Optional[str], tuple[int, bytes]
+    ]
 ]
 
 
@@ -81,7 +93,6 @@ def dns_resolver_manager() -> Generator[_DNSResolverManager, None, None]:
 
 
 class FakeAIODNSAddrInfoNode(NamedTuple):
-
     family: int
     addr: tuple[bytes, int] | tuple[bytes, int, int, int]
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Example of aiohttp.web.Application.on_startup signal handler"""
+
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import suppress
@@ -8,8 +9,8 @@ import valkey.asyncio as valkey
 
 from aiohttp import web
 
-valkey_listener = web.AppKey("valkey_listener", asyncio.Task[None])
-websockets = web.AppKey("websockets", list[web.WebSocketResponse])
+valkey_listener = web.AppKey("valkey_listener", asyncio.Task[Optional[None]])
+websockets = web.AppKey("websockets", list[Optional[web.WebSocketResponse]])
 
 
 async def websocket_handler(request: web.Request) -> web.StreamResponse:
@@ -26,22 +27,26 @@ async def websocket_handler(request: web.Request) -> web.StreamResponse:
 
 
 async def on_shutdown(app: web.Application) -> None:
-    for ws in app[websockets]:
-        await ws.close(code=999, message=b"Server shutdown")
+    if web.WebSocketResponse in app[websockets]:
+        for ws in app[websockets]:
+            await ws.close(code=999, message=b"Server shutdown")
 
 
 async def listen_to_valkey(app: web.Application) -> None:
-    r = valkey.Valkey(host="localhost", port=6379, decode_responses=True)
-    channel = "news"
-    async with r.pubsub() as sub:
-        await sub.subscribe(channel)
-        async for msg in sub.listen():
-            if msg["type"] != "message":
-                continue
-            # Forward message to all connected websockets:
-            for ws in app[websockets]:
-                await ws.send_str(f"{channel}: {msg}")
-            print(f"message in {channel}: {msg}")
+    try:
+        r = valkey.Valkey(host="localhost", port=6379, decode_responses=True)
+        channel = "news"
+        async with r.pubsub() as sub:
+            await sub.subscribe(channel)
+            async for msg in sub.listen():
+                if msg["type"] != "message":
+                    continue
+                # Forward message to all connected websockets:
+                for ws in app[websockets]:
+                    await ws.send_str(f"{channel}: {msg}")
+                print(f"message in {channel}: {msg}")
+    except Exception as e:
+        print(f"Error in listen_to_valkey: {e}")
 
 
 async def background_tasks(app: web.Application) -> AsyncIterator[None]:

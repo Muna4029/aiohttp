@@ -77,7 +77,7 @@ def test_create_client_request_with_headers(
     timer = TimerNoop()
     traces: list[Trace] = []
     headers = CIMultiDict({"header": "value", "another": "header"})
-    cookies = BaseCookie[str]()
+    cookies = BaseCookie()
 
     @benchmark
     def _run() -> None:
@@ -125,7 +125,6 @@ def test_send_client_request_one_hundred(
             """Swallow writes."""
 
     class MockProtocol(asyncio.BaseProtocol):
-
         def __init__(self) -> None:
             self.transport = MockTransport()
 
@@ -140,7 +139,6 @@ def test_send_client_request_one_hundred(
             """Swallow start_timeout."""
 
     class MockConnector:
-
         def __init__(self) -> None:
             self.force_close = False
 

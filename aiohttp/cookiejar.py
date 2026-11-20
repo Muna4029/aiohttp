@@ -224,7 +224,7 @@ class CookieJar(AbstractCookieJar):
 
         if not self._unsafe and is_ip_address(hostname):
             # Don't accept cookies from IPs
-            return
+            return None
 
         if isinstance(cookies, Mapping):
             cookies = cookies.items()
@@ -391,7 +391,9 @@ class CookieJar(AbstractCookieJar):
         # bypass validation and set already validated state. This is more stable than
         # setting protected attributes directly and unlikely to change since it would
         # break pickling.
-        morsel.__setstate__({"key": cookie.key, "value": value, "coded_value": coded_value})  # type: ignore[attr-defined]
+        morsel.__setstate__(
+            {"key": cookie.key, "value": value, "coded_value": coded_value}
+        )  # type: ignore[attr-defined]
         return morsel
 
     @staticmethod

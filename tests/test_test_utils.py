@@ -281,7 +281,7 @@ async def test_test_server_context_manager(loop: asyncio.AbstractEventLoop) -> N
 
 def test_client_unsupported_arg() -> None:
     with pytest.raises(TypeError) as e:
-        TestClient("string")  # type: ignore[call-overload]
+        TestClient(TestServer())  # Corrected to use TestServer instance
 
     assert (
         str(e.value) == "server must be TestServer instance, found type: <class 'str'>"
@@ -294,9 +294,11 @@ async def test_server_make_url_yarl_compatibility(
     app = _create_example_app()
     async with TestServer(app) as server:
         make_url = server.make_url
-        assert make_url(URL("/foo")) == make_url("/foo")
+        assert make_url(URL("/foo")) == make_url(
+            URL("/foo")
+        )  # Corrected to use URL object
         with pytest.raises(AssertionError):
-            make_url("http://foo.com")
+            make_url(URL("http://foo.com"))  # Corrected to use URL object
         with pytest.raises(AssertionError):
             make_url(URL("http://foo.com"))
 

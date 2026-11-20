@@ -47,7 +47,9 @@ def test_base_ctor() -> None:
     # MacOS may return CamelCased host name, need .lower()
     # FQDN can be wider than host, e.g.
     # 'fv-az397-495' in 'fv-az397-495.internal.cloudapp.net'
-    assert req.host.lower() in socket.getfqdn().lower()
+    assert (
+        req.host.lower() in socket.getfqdn().lower() if req.host is not None else False
+    )
     assert "/path/to?a=1&b=2" == req.path_qs
     assert "/path/to" == req.path
     assert "a=1&b=2" == req.query_string
@@ -115,20 +117,20 @@ def test_doubleslashes() -> None:
 
 
 def test_content_type_not_specified() -> None:
-    req = make_mocked_request("Get", "/")
+    req = make_mocked_request("GET", "/")
     assert "application/octet-stream" == req.content_type
 
 
 def test_content_type_from_spec() -> None:
     req = make_mocked_request(
-        "Get", "/", CIMultiDict([("CONTENT-TYPE", "application/json")])
+        "GET", "/", CIMultiDict([("CONTENT-TYPE", "application/json")])
     )
     assert "application/json" == req.content_type
 
 
 def test_content_type_from_spec_with_charset() -> None:
     req = make_mocked_request(
-        "Get", "/", CIMultiDict([("CONTENT-TYPE", "text/html; charset=UTF-8")])
+        "GET", "/", CIMultiDict([("CONTENT-TYPE", "text/html; charset=UTF-8")])
     )
     assert "text/html" == req.content_type
     assert "UTF-8" == req.charset
@@ -136,7 +138,7 @@ def test_content_type_from_spec_with_charset() -> None:
 
 def test_calc_content_type_on_getting_charset() -> None:
     req = make_mocked_request(
-        "Get", "/", CIMultiDict([("CONTENT-TYPE", "text/html; charset=UTF-8")])
+        "GET", "/", CIMultiDict([("CONTENT-TYPE", "text/html; charset=UTF-8")])
     )
     assert "UTF-8" == req.charset
     assert "text/html" == req.content_type
@@ -182,7 +184,7 @@ def test_clone_absolute_host() -> None:
 
 
 def test_content_length() -> None:
-    req = make_mocked_request("Get", "/", CIMultiDict([("CONTENT-LENGTH", "123")]))
+    req = make_mocked_request("GET", "/", CIMultiDict([("CONTENT-LENGTH", "123")]))
 
     assert 123 == req.content_length
 

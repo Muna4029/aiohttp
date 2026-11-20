@@ -121,7 +121,7 @@ def test_run_not_app(
     worker.cfg.access_log_format = ACCEPTABLE_LOG_FORMAT
 
     worker.loop = loop
-    worker.wsgi = "not-app"
+    worker.wsgi = None
     worker.alive = False
     with pytest.raises(SystemExit):
         worker.run()
@@ -199,7 +199,7 @@ def test__get_valid_log_format_ok(
 
 def test__get_valid_log_format_exc(worker: base_worker.GunicornWebWorker) -> None:
     with pytest.raises(ValueError) as exc:
-        worker._get_valid_log_format(WRONG_LOG_FORMAT)
+        worker._get_valid_log_format(ACCEPTABLE_LOG_FORMAT)
     assert "%(name)s" in str(exc.value)
 
 

@@ -24,7 +24,7 @@ except ImportError:
 try:
     import ssl
 except ImportError:
-    ssl = None  # type: ignore[assignment]
+    ssl: Optional[ssl.SSLContext] = None  # type: ignore[assignment]
 
 
 class _Sender(Protocol):
@@ -67,7 +67,7 @@ def loop_with_mocked_native_sendfile(
     def sendfile(transport: object, fobj: object, offset: int, count: int) -> NoReturn:
         if count == 0:
             raise ValueError("count must be a positive integer (got 0)")
-        raise NotImplementedError
+        raise NotImplementedError("sendfile not implemented")
 
     with mock.patch.object(loop, "sendfile", sendfile):
         yield loop
@@ -247,8 +247,11 @@ async def test_static_file_with_content_type(
         assert content == body
     assert resp.headers["Content-Type"] == "image/jpeg"
     assert resp.headers.get("Content-Encoding") is None
-    resp.close()
-    resp.release()
+    if resp is not None:
+        if resp is not None:
+        if resp is not None:
+        resp.release()
+        resp.close()
     await client.close()
 
 
@@ -261,6 +264,7 @@ async def test_static_file_custom_content_type(
     async def handler(request: web.Request) -> web.FileResponse:
         resp = sender(hello_txt, chunk_size=16)
         resp.content_type = "application/pdf"
+    assert resp.content_type == "application/pdf", "Content type mismatch"
         return resp
 
     app = web.Application()
@@ -272,8 +276,9 @@ async def test_static_file_custom_content_type(
     assert resp.headers.get("Content-Encoding") is None
     assert resp.headers["Content-Type"] == "application/pdf"
     assert await resp.read() == hello_txt.read_bytes()
-    resp.close()
-    resp.release()
+    if resp is not None:
+        resp.release()
+        resp.close()
     await client.close()
 
 
@@ -303,9 +308,10 @@ async def test_static_file_custom_content_type_compress(
     assert resp.status == 200
     assert resp.headers.get("Content-Encoding") == expect_encoding
     assert resp.headers["Content-Type"] == "application/pdf"
-    assert await resp.read() == HELLO_AIOHTTP
-    resp.close()
-    resp.release()
+    assert await resp.read() == HELLO_AIOHTTP, "Response body mismatch"
+    if resp is not None:
+        resp.release()
+        resp.close()
     await client.close()
 
 
@@ -337,10 +343,11 @@ async def test_static_file_with_encoding_and_enable_compression(
     resp = await client.get("/", headers={"Accept-Encoding": accept_encoding})
     assert resp.status == 200
     assert resp.headers.get("Content-Encoding") == expect_encoding
-    assert resp.headers["Content-Type"] == "text/plain"
+    assert resp.headers["Content-Type"] == "text/plain", "Content-Type mismatch"
     assert await resp.read() == HELLO_AIOHTTP
-    resp.close()
-    resp.release()
+    if resp is not None:
+        resp.release()
+        resp.close()
     await client.close()
 
 
@@ -371,7 +378,7 @@ async def test_static_file_with_content_encoding(
     resp = await client.get("/")
     assert resp.status == 200
     assert resp.headers.get("Content-Encoding") is None
-    assert resp.headers["Content-Type"] == expect_type
+    assert resp.headers["Content-Type"] == expect_type, "Content-Type mismatch"
     assert await resp.read() == hello_txt.read_bytes()
     resp.close()
 
@@ -388,8 +395,9 @@ async def test_static_file_if_modified_since(
     assert 200 == resp.status
     lastmod = resp.headers.get("Last-Modified")
     assert lastmod is not None
-    resp.close()
-    resp.release()
+    if resp is not None:
+        resp.release()
+        resp.close()
 
     resp = await client.get("/", headers={"If-Modified-Since": lastmod})
     body = await resp.read()
@@ -397,8 +405,9 @@ async def test_static_file_if_modified_since(
     assert resp.headers.get("Content-Length") is None
     assert resp.headers.get("Last-Modified") == lastmod
     assert b"" == body
-    resp.close()
-    resp.release()
+    if resp is not None:
+        resp.release()
+        resp.close()
     await client.close()
 
 
@@ -529,7 +538,7 @@ async def test_static_file_if_none_match(
     assert 200 == resp.status
     original_etag = resp.headers["ETag"]
 
-    assert resp.headers.get("Last-Modified") is not None
+    assert resp.headers.get("Last-Modified") is not None, "Last-Modified header is missing"
     resp.close()
     resp.release()
 
@@ -642,7 +651,7 @@ async def test_static_file_directory_traversal_attack(
     client = await aiohttp_client(app)
 
     resp = await client.get("/static/" + relpath)
-    assert 404 == resp.status
+    assert resp.status == 404, "Expected 404 status"
     resp.release()
 
     url_relpath2 = "/static/dir/../" + relpath
@@ -652,7 +661,7 @@ async def test_static_file_directory_traversal_attack(
 
     url_abspath = "/static/" + str(full_path.resolve())
     resp = await client.get(url_abspath)
-    assert 403 == resp.status
+    assert resp.status == 403, "Expected 403 status"
     resp.release()
 
     await client.close()
@@ -868,13 +877,13 @@ async def test_static_file_invalid_range(
 
     # range must be in bytes
     resp = await client.get("/", headers={"Range": "blocks=0-10"})
-    assert resp.status == 416, "Range must be in bytes"
+    assert resp.status == 416, "Expected 416 status for invalid range"
     resp.close()
     resp.release()
 
     # start > end
     resp = await client.get("/", headers={"Range": "bytes=100-0"})
-    assert resp.status == 416, "Range start can't be greater than end"
+    assert resp.status == 416, "Expected 416 status for invalid range"
     resp.close()
     resp.release()
 
@@ -886,19 +895,19 @@ async def test_static_file_invalid_range(
 
     # non-number range
     resp = await client.get("/", headers={"Range": "bytes=a-f"})
-    assert resp.status == 416, "Range must be integers"
+    assert resp.status == 416, "Expected 416 status for non-numeric range"
     resp.close()
     resp.release()
 
     # double dash range
     resp = await client.get("/", headers={"Range": "bytes=0--10"})
-    assert resp.status == 416, "double dash in range"
+    assert resp.status == 416, "Expected 416 status for double dash in range"
     resp.close()
     resp.release()
 
     # no range
     resp = await client.get("/", headers={"Range": "bytes=-"})
-    assert resp.status == 416, "no range given"
+    assert resp.status == 416, "Expected 416 status for no range given"
     resp.close()
     resp.release()
 

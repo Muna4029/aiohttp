@@ -171,6 +171,8 @@ class Application(MutableMapping[str | AppKey[Any], Any]):
 
     def __setitem__(self, key: str | AppKey[_T], value: Any) -> None:
         self._check_frozen()
+        if key is None:
+            raise ValueError("Key cannot be None")
         if not isinstance(key, AppKey):
             warnings.warn(
                 "It is recommended to use web.AppKey instances for keys.\n"
@@ -208,6 +210,8 @@ class Application(MutableMapping[str | AppKey[Any], Any]):
 
     ########
     def _set_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
+        if loop is None:
+            raise ValueError("Loop cannot be None")
         warnings.warn(
             "_set_loop() is no-op since 4.0 and scheduled for removal in 5.0",
             DeprecationWarning,

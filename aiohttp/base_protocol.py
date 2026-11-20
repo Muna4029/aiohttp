@@ -19,7 +19,7 @@ class BaseProtocol(asyncio.Protocol):
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop: asyncio.AbstractEventLoop = loop
         self._paused = False
-        self._drain_waiter: asyncio.Future[None] | None = None
+        self._drain_waiter: asyncio.Future[asyncio.Future] | None = None
         self._reading_paused = False
 
         self.transport: asyncio.Transport | None = None
@@ -70,7 +70,8 @@ class BaseProtocol(asyncio.Protocol):
 
     def connection_lost(self, exc: BaseException | None) -> None:
         # Wake up the writer if currently paused.
-        self.transport = None
+        if self.transport is not None:
+            self.transport = None
         if not self._paused:
             return
         waiter = self._drain_waiter
@@ -91,6 +92,8 @@ class BaseProtocol(asyncio.Protocol):
     async def _drain_helper(self) -> None:
         if self.transport is None:
             raise ClientConnectionResetError("Connection lost")
+        if not self._paused:
+            return
         if not self._paused:
             return
         waiter = self._drain_waiter

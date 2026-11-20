@@ -171,7 +171,8 @@ class NamedPipeSite(BaseSite):
     def __init__(self, runner: "BaseRunner[Any]", path: str) -> None:
         loop = asyncio.get_event_loop()
         if not isinstance(
-            loop, asyncio.ProactorEventLoop  # type: ignore[attr-defined]
+            loop,
+            asyncio.ProactorEventLoop,  # type: ignore[attr-defined]
         ):
             raise RuntimeError(
                 "Named Pipes only available in proactor loop under windows"
@@ -250,7 +251,9 @@ class BaseRunner(ABC, Generic[_Request]):
         self._shutdown_timeout = shutdown_timeout
 
     @property
-    def server(self) -> Server[_Request] | None:
+    def server(self) -> Server[_Request]:
+        if self._server is None:
+            raise ValueError("Server is not initialized")
         return self._server
 
     @property
@@ -285,6 +288,7 @@ class BaseRunner(ABC, Generic[_Request]):
     @abstractmethod
     async def shutdown(self) -> None:
         """Call any shutdown hooks to help server close gracefully."""
+        raise NotImplementedError("shutdown method not implemented")
 
     async def cleanup(self) -> None:
         # The loop over sites is intentional, an exception on gather()
@@ -352,6 +356,7 @@ class ServerRunner(BaseRunner[BaseRequest]):
         self._web_server = web_server
 
     async def shutdown(self) -> None:
+        # Implement shutdown logic here
         pass
 
     async def _make_server(self) -> Server[BaseRequest]:
@@ -400,6 +405,8 @@ class AppRunner(BaseRunner[Request]):
         return self._app
 
     async def shutdown(self) -> None:
+        if not hasattr(self._app, "shutdown"):
+            raise RuntimeError("App does not have a shutdown method")
         await self._app.shutdown()
 
     async def _make_server(self) -> Server[Request]:

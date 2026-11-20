@@ -58,7 +58,7 @@ class AccessLogger(AbstractAccessLogger):
     LOG_FORMAT = '%a %t "%r" %s %b "%{Referer}i" "%{User-Agent}i"'
     FORMAT_RE = re.compile(r"%(\{([A-Za-z0-9\-_]+)\}([ioe])|[atPrsbOD]|Tf?)")
     CLEANUP_RE = re.compile(r"(%[^s])")
-    _FORMAT_CACHE: dict[str, tuple[str, list[KeyMethod]]] = {}
+    _FORMAT_CACHE: dict[str, tuple[str, list[KeyMethod]]] = {}  # type: ignore
 
     def __init__(self, logger: logging.Logger, log_format: str = LOG_FORMAT) -> None:
         """Initialise the logger.
@@ -153,11 +153,11 @@ class AccessLogger(AbstractAccessLogger):
 
     @staticmethod
     def _format_s(request: BaseRequest, response: StreamResponse, time: float) -> int:
-        return response.status
+        return int(response.status)
 
     @staticmethod
     def _format_b(request: BaseRequest, response: StreamResponse, time: float) -> int:
-        return response.body_length
+        return int(response.body_length)
 
     @staticmethod
     def _format_T(request: BaseRequest, response: StreamResponse, time: float) -> str:

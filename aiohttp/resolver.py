@@ -10,6 +10,8 @@ __all__ = ("ThreadedResolver", "AsyncResolver", "DefaultResolver")
 
 try:
     import aiodns
+except ImportError:
+    aiodns = None
 
     aiodns_default = hasattr(aiodns.DNSResolver, "getaddrinfo")
 except ImportError:
@@ -88,6 +90,7 @@ class AsyncResolver(AbstractResolver):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         if aiodns is None:
             raise RuntimeError("Resolver requires aiodns library")
+        self._loop = asyncio.get_running_loop()
 
         self._loop = asyncio.get_running_loop()
         self._manager: _DNSResolverManager | None = None

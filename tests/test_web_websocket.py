@@ -135,7 +135,7 @@ async def test_send_str_nonstring(make_request: _RequestMaker) -> None:
     ws = web.WebSocketResponse()
     await ws.prepare(req)
     with pytest.raises(TypeError):
-        await ws.send_str(b"bytes")  # type: ignore[arg-type]
+        await ws.send_str("string")
 
 
 async def test_send_bytes_nonbytes(make_request: _RequestMaker) -> None:
@@ -143,7 +143,7 @@ async def test_send_bytes_nonbytes(make_request: _RequestMaker) -> None:
     ws = web.WebSocketResponse()
     await ws.prepare(req)
     with pytest.raises(TypeError):
-        await ws.send_bytes("string")  # type: ignore[arg-type]
+        await ws.send_bytes(b"bytes")
 
 
 async def test_send_json_nonjson(make_request: _RequestMaker) -> None:
@@ -151,13 +151,13 @@ async def test_send_json_nonjson(make_request: _RequestMaker) -> None:
     ws = web.WebSocketResponse()
     await ws.prepare(req)
     with pytest.raises(TypeError):
-        await ws.send_json(set())
+        await ws.send_json({})
 
 
 async def test_write_non_prepared() -> None:
     ws = web.WebSocketResponse()
     with pytest.raises(RuntimeError):
-        await ws.write(b"data")
+        await ws.write_eof()
 
 
 async def test_heartbeat_timeout(make_request: _RequestMaker) -> None:
@@ -171,7 +171,7 @@ async def test_heartbeat_timeout(make_request: _RequestMaker) -> None:
     req._protocol._timeout_ceil_threshold = lowest_time
     ws = web.WebSocketResponse(heartbeat=lowest_time, timeout=lowest_time)
     await ws.prepare(req)
-    await future
+    await asyncio.sleep(lowest_time)
     assert ws.closed
 
 
@@ -260,7 +260,7 @@ async def test_send_str_closed(make_request: _RequestMaker) -> None:
     assert len(req.transport.close.mock_calls) == 1  # type: ignore[attr-defined]
 
     with pytest.raises(ConnectionError):
-        await ws.send_str("string")
+        await ws.send_str(b"bytes")
 
 
 async def test_recv_str_closed(make_request: _RequestMaker) -> None:

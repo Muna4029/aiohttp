@@ -165,7 +165,9 @@ class HeadersParser:
             line = lines[lines_idx]
 
             # consume continuation lines
-            continuation = self._lax and line and line[0] in (32, 9)  # (' ', '\t')
+            continuation = (
+                self._lax and line is not None and line[0] in (32, 9)
+            )  # (' ', '\t')
 
             # Deprecated: https://www.rfc-editor.org/rfc/rfc9112.html#name-obsolete-line-folding
             if continuation:
@@ -206,7 +208,7 @@ class HeadersParser:
             value = bvalue.decode("utf-8", "surrogateescape")
 
             # https://www.rfc-editor.org/rfc/rfc9110.html#section-5.5-5
-            if "\n" in value or "\r" in value or "\x00" in value:
+            if value is None or "\n" in value or "\r" in value or "\x00" in value:
                 raise InvalidHeader(bvalue)
 
             headers.add(name, value)
@@ -274,7 +276,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
                 self._lines.append(self._tail)
 
             if self._lines:
-                if self._lines[-1] != "\r\n":
+                if self._lines and self._lines[-1] != "\r\n":
                     self._lines.append(b"")
                 with suppress(Exception):
                     return self.parse_message(self._lines)
@@ -330,7 +332,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
                         def get_content_length() -> int | None:
                             # payload length
                             length_hdr = msg.headers.get(CONTENT_LENGTH)
-                            if length_hdr is None:
+                            if length_hdr is None or not isinstance(length_hdr, str):
                                 return None
 
                             # Shouldn't allow +/- or other number formats.
@@ -511,6 +513,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
 
         # keep-alive
         conn = headers.get(hdrs.CONNECTION)
+        close_conn = False
         if conn:
             v = conn.lower()
             if v == "close":
@@ -530,6 +533,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
 
         # chunking
         te = headers.get(hdrs.TRANSFER_ENCODING)
+        chunked = False
         if te is not None:
             if self._is_chunked_te(te):
                 chunked = True
@@ -643,7 +647,7 @@ class HttpRequestParser(HttpParser[RawRequestMessage]):
         )
 
     def _is_chunked_te(self, te: str) -> bool:
-        if te.rsplit(",", maxsplit=1)[-1].strip(" \t").lower() == "chunked":
+        if te and te.rsplit(",", maxsplit=1)[-1].strip(" \t").lower() == "chunked":
             return True
         # https://www.rfc-editor.org/rfc/rfc9112#section-6.3-2.4.3
         raise BadHttpMessage("Request has invalid `Transfer-Encoding`")

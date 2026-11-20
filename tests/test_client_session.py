@@ -211,11 +211,11 @@ async def test_http_GET(session: ClientSession, params: _Params) -> None:
     with mock.patch(
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
-        await session.get("http://test.example.com", params={"x": 1}, **params)
+        await session.get("http://test.example.com", params={"x": 1}, **(params or {}))
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "GET", "http://test.example.com"),
-        dict(params={"x": 1}, allow_redirects=True, **params),
+        dict(params={"x": 1}, allow_redirects=True, **(params or {})),
     ]
 
 
@@ -223,11 +223,11 @@ async def test_http_OPTIONS(session: ClientSession, params: _Params) -> None:
     with mock.patch(
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
-        await session.options("http://opt.example.com", params={"x": 2}, **params)
+        await session.options("http://opt.example.com", params={"x": 2}, **(params or {}))
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "OPTIONS", "http://opt.example.com"),
-        dict(params={"x": 2}, allow_redirects=True, **params),
+        dict(params={"x": 2}, allow_redirects=True, **(params or {})),
     ]
 
 
@@ -235,11 +235,11 @@ async def test_http_HEAD(session: ClientSession, params: _Params) -> None:
     with mock.patch(
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
-        await session.head("http://head.example.com", params={"x": 2}, **params)
+        await session.head("http://head.example.com", params={"x": 2}, **(params or {}))
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "HEAD", "http://head.example.com"),
-        dict(params={"x": 2}, allow_redirects=False, **params),
+        dict(params={"x": 2}, allow_redirects=False, **(params or {})),
     ]
 
 
@@ -262,12 +262,12 @@ async def test_http_PUT(session: ClientSession, params: _Params) -> None:
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
         await session.put(
-            "http://put.example.com", params={"x": 2}, data="Some_data", **params
+            "http://put.example.com", params={"x": 2}, data="Some_data", **(params or {})
         )
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "PUT", "http://put.example.com"),
-        dict(params={"x": 2}, data="Some_data", **params),
+        dict(params={"x": 2}, data="Some_data", **(params or {}),
     ]
 
 
@@ -276,12 +276,12 @@ async def test_http_PATCH(session: ClientSession, params: _Params) -> None:
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
         await session.patch(
-            "http://patch.example.com", params={"x": 2}, data="Some_data", **params
+            "http://patch.example.com", params={"x": 2}, data="Some_data", **(params or {})
         )
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "PATCH", "http://patch.example.com"),
-        dict(params={"x": 2}, data="Some_data", **params),
+        dict(params={"x": 2}, data="Some_data", **(params or {}),
     ]
 
 
@@ -289,11 +289,11 @@ async def test_http_DELETE(session: ClientSession, params: _Params) -> None:
     with mock.patch(
         "aiohttp.client.ClientSession._request", autospec=True, spec_set=True
     ) as patched:
-        await session.delete("http://delete.example.com", params={"x": 2}, **params)
+        await session.delete("http://delete.example.com", params={"x": 2}, **(params or {}))
     assert patched.called, "`ClientSession._request` not called"
     assert list(patched.call_args) == [
         (session, "DELETE", "http://delete.example.com"),
-        dict(params={"x": 2}, **params),
+        dict(params={"x": 2}, **(params or {}),
     ]
 
 
@@ -1158,7 +1158,7 @@ def test_client_session_inheritance() -> None:
 async def test_client_session_custom_attr() -> None:
     session = ClientSession()
     with pytest.raises(AttributeError):
-        session.custom = None  # type: ignore[attr-defined]
+        session.custom = ""  # type: ignore[attr-defined]
     await session.close()
 
 

@@ -119,7 +119,6 @@ class _RequestInfo(NamedTuple):
 
 
 class RequestInfo(_RequestInfo):
-
     def __new__(
         cls,
         url: URL,
@@ -217,20 +216,20 @@ class ClientResponse(HeadersMixin):
     # As the end user will likely never see the None values, we cheat the types below.
     # from the Status-Line of the response
     version: HttpVersion | None = None  # HTTP-Version
-    status: int = None  # type: ignore[assignment] # Status-Code
+    status: int = 0  # type: ignore[assignment] # Status-Code
     reason: str | None = None  # Reason-Phrase
 
-    content: StreamReader = None  # type: ignore[assignment] # Payload stream
+    content: StreamReader = StreamReader()  # type: ignore[assignment] # Payload stream
     _body: bytes | None = None
-    _headers: CIMultiDictProxy[str] = None  # type: ignore[assignment]
+    _headers: CIMultiDictProxy[str] = CIMultiDictProxy()  # type: ignore[assignment]
     _history: tuple["ClientResponse", ...] = ()
-    _raw_headers: RawHeaders = None  # type: ignore[assignment]
+    _raw_headers: RawHeaders = ()  # type: ignore[assignment]
 
     _connection: Optional["Connection"] = None  # current connection
-    _cookies: SimpleCookie | None = None
-    _raw_cookie_headers: tuple[str, ...] | None = None
-    _continue: Optional["asyncio.Future[bool]"] = None
-    _source_traceback: traceback.StackSummary | None = None
+    _cookies: SimpleCookie = SimpleCookie()
+    _raw_cookie_headers: tuple[str, ...] = ()
+    _continue: Optional["asyncio.Future[bool]"] = asyncio.Future()
+    _source_traceback: traceback.StackSummary = traceback.extract_stack()
     _session: Optional["ClientSession"] = None
     # set up by ClientRequest after ClientResponse object creation
     # post-init stage allows to not change ctor signature
@@ -256,7 +255,7 @@ class ClientResponse(HeadersMixin):
         session: "ClientSession",
     ) -> None:
         # URL forbids subclasses, so a simple type check is enough.
-        assert type(url) is URL
+        assert isinstance(url, URL)
 
         self.method = method
 
@@ -274,7 +273,7 @@ class ClientResponse(HeadersMixin):
         # Save reference to _resolve_charset, so that get_encoding() will still
         # work after the response has finished reading the body.
         # TODO: Fix session=None in tests (see ClientRequest.__init__).
-        if session is not None:
+        if session is not None and isinstance(session, ClientSession):
             # store a reference to session #1985
             self._session = session
             self._resolve_charset = session._resolve_charset
@@ -291,10 +290,10 @@ class ClientResponse(HeadersMixin):
         _writer is only provided for backwards compatibility
         for subclasses that may need to access it.
         """
-        return self.__writer
+        return self.__writer if self.__writer is not None else asyncio.Task()
 
     @_writer.setter
-    def _writer(self, writer: Optional["asyncio.Task[None]"]) -> None:
+    def _writer(self, writer: Optional["asyncio.Task[None]"] = asyncio.Task()) -> None:
         """Set the writer task for streaming data."""
         if self.__writer is not None:
             self.__writer.remove_done_callback(self.__reset_writer)
@@ -654,7 +653,7 @@ class ClientResponse(HeadersMixin):
         if encoding is None:
             encoding = self.get_encoding()
 
-        return self._body.decode(encoding, errors=errors)  # type: ignore[union-attr]
+        return self._body.decode(encoding or "utf-8", errors=errors)  # type: ignore[union-attr]
 
     async def json(
         self,
@@ -682,7 +681,7 @@ class ClientResponse(HeadersMixin):
         if encoding is None:
             encoding = self.get_encoding()
 
-        return loads(self._body.decode(encoding))  # type: ignore[union-attr]
+        return loads(self._body.decode(encoding or "utf-8"))  # type: ignore[union-attr]
 
     async def __aenter__(self) -> "ClientResponse":
         self._in_context = True
@@ -772,7 +771,7 @@ class ClientRequest:
         # URL forbids subclasses, so a simple type check is enough.
         assert type(url) is URL, url
         if proxy is not None:
-            assert type(proxy) is URL, proxy
+            assert isinstance(proxy, URL), proxy
         # FIXME: session is None in tests only, need to fix tests
         # assert session is not None
         if TYPE_CHECKING:
@@ -1067,7 +1066,7 @@ class ClientRequest:
     def update_auth(self, auth: BasicAuth | None, trust_env: bool = False) -> None:
         """Set basic auth."""
         if auth is None:
-            auth = self.auth
+            auth = self.auth if self.auth is not None else BasicAuth("", "")
         if auth is None and trust_env and self.url.host is not None:
             netrc_obj = netrc_from_env()
             with contextlib.suppress(LookupError):
@@ -1084,6 +1083,8 @@ class ClientRequest:
         """Update request body from data."""
         if self._body is not None:
             _warn_if_unclosed_payload(self._body, stacklevel=_stacklevel)
+        else:
+            self._body = b""
 
         if body is None:
             self._body = None
@@ -1107,7 +1108,7 @@ class ClientRequest:
                 boundary = parse_mimetype(self.headers[CONTENT_TYPE]).parameters.get(
                     "boundary"
                 )
-            body_payload = FormData(maybe_payload, boundary=boundary)()  # type: ignore[arg-type]
+            body_payload = FormData(maybe_payload or {}, boundary=boundary)()  # type: ignore[arg-type]
 
         self._body = body_payload
         # enable chunked encoding if needed
@@ -1138,7 +1139,7 @@ class ClientRequest:
 
         # Now update the body using the existing method
         # Called from _update_body, add 1 to stacklevel from caller
-        self.update_body_from_data(body, _stacklevel=4)
+        self.update_body_from_data(body or {}, _stacklevel=4)
 
         # Update transfer encoding headers if needed (same logic as __init__)
         if body is not None or self.method not in self.GET_METHODS:

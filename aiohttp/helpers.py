@@ -371,8 +371,11 @@ class EnsureOctetStream(Message):
         The way this class is used guarantees that content-type will
         be present so simplify the checks wrt to the base implementation.
         """
-        value = self.get("content-type").lower()
-
+        value = self.get("content-type")
+        if value is not None:
+            value = value.lower()
+        else:
+            value = ""  # or handle the None case appropriately
         # Based on the implementation of _splitparam in the standard library
         ctype, sep, _ = value.partition(";")
         if not sep:
@@ -501,7 +504,7 @@ def is_ip_address(host: str | None) -> bool:
 
 
 _cached_current_datetime: int | None = None
-_cached_formatted_datetime = ""
+_cached_formatted_datetime: str = ""
 
 
 def rfc822_formatted_time() -> str:
@@ -604,6 +607,9 @@ class TimeoutHandle:
         timeout: float | None,
         ceil_threshold: float = 5,
     ) -> None:
+        if name is None:
+            raise ValueError("Name cannot be None")
+
         self._timeout = timeout
         self._loop = loop
         self._ceil_threshold = ceil_threshold
@@ -646,7 +652,6 @@ class TimeoutHandle:
 
 
 class BaseTimerContext(ContextManager["BaseTimerContext"]):
-
     __slots__ = ()
 
     def assert_timeout(self) -> None:
@@ -654,7 +659,6 @@ class BaseTimerContext(ContextManager["BaseTimerContext"]):
 
 
 class TimerNoop(BaseTimerContext):
-
     __slots__ = ()
 
     def __enter__(self) -> BaseTimerContext:
@@ -754,7 +758,7 @@ class HeadersMixin:
     _headers: MultiMapping[str]
     _content_type: str | None = None
     _content_dict: dict[str, str] | None = None
-    _stored_content_type: str | None | _SENTINEL = sentinel
+    _stored_content_type: str | _SENTINEL = sentinel
 
     def _parse_content_type(self, raw: str | None) -> None:
         self._stored_content_type = raw
@@ -774,7 +778,8 @@ class HeadersMixin:
         raw = self._headers.get(hdrs.CONTENT_TYPE)
         if self._stored_content_type != raw:
             self._parse_content_type(raw)
-        assert self._content_type is not None
+        if self._content_type is None:
+            raise ValueError("Content type is not set")
         return self._content_type
 
     @property
@@ -783,7 +788,8 @@ class HeadersMixin:
         raw = self._headers.get(hdrs.CONTENT_TYPE)
         if self._stored_content_type != raw:
             self._parse_content_type(raw)
-        assert self._content_dict is not None
+        if self._content_dict is None:
+            raise ValueError("Content dict is not set")
         return self._content_dict.get("charset")
 
     @property

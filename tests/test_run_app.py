@@ -37,10 +37,12 @@ else:
     _abstract_path_failed = True
 
 skip_if_no_abstract_paths = pytest.mark.skipif(
-    _abstract_path_failed, reason="Linux-style abstract paths are not supported."
+    _abstract_path_failed if "_abstract_path_failed" in locals() else False,
+    reason="Linux-style abstract paths are not supported.",
 )
 skip_if_no_unix_socks = pytest.mark.skipif(
-    not _has_unix_domain_socks, reason="Unix domain sockets are not supported"
+    not _has_unix_domain_socks if "_has_unix_domain_socks" in locals() else True,
+    reason="Unix domain sockets are not supported",
 )
 del _has_unix_domain_socks, _abstract_path_failed
 
@@ -498,7 +500,7 @@ def test_run_app_multiple_hosts(patched_loop: asyncio.AbstractEventLoop) -> None
     hosts = ("127.0.0.1", "127.0.0.2")
 
     app = web.Application()
-    web.run_app(app, host=hosts, print=stopper(patched_loop), loop=patched_loop)
+    web.run_app(app, host=hosts[0], print=stopper(patched_loop), loop=patched_loop)
 
     calls = map(
         lambda h: mock.call(
@@ -517,7 +519,13 @@ def test_run_app_multiple_hosts(patched_loop: asyncio.AbstractEventLoop) -> None
 
 def test_run_app_custom_backlog(patched_loop: asyncio.AbstractEventLoop) -> None:
     app = web.Application()
-    web.run_app(app, backlog=10, print=stopper(patched_loop), loop=patched_loop)
+    web.run_app(
+        app,
+        backlog=10,
+        host="127.0.0.1",
+        print=stopper(patched_loop),
+        loop=patched_loop,
+    )
 
     patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
         mock.ANY, None, 8080, ssl=None, backlog=10, reuse_address=None, reuse_port=None
@@ -564,6 +572,7 @@ def test_run_app_https_unix_socket(
     printer = mock.Mock(wraps=stopper(patched_loop))
     web.run_app(
         app,
+        host="127.0.0.1",
         path=unix_sockname,
         ssl_context=ssl_context,
         print=printer,
@@ -583,6 +592,7 @@ def test_run_app_abstract_linux_socket(patched_loop: asyncio.AbstractEventLoop) 
     app = web.Application()
     web.run_app(
         app,
+        host="127.0.0.1",
         path=sock_path.decode("ascii", "ignore"),
         print=stopper(patched_loop),
         loop=patched_loop,
@@ -604,7 +614,7 @@ def test_run_app_preexisting_inet_socket(
         _, port = sock.getsockname()
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=sock, print=printer, loop=patched_loop)
+        web.run_app(app, host="127.0.0.1", sock=sock, print=printer, loop=patched_loop)
 
         patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
             mock.ANY, sock=sock, backlog=128, ssl=None
@@ -624,7 +634,7 @@ def test_run_app_preexisting_inet6_socket(
         port = sock.getsockname()[1]
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=sock, print=printer, loop=patched_loop)
+        web.run_app(app, host="127.0.0.1", sock=sock, print=printer, loop=patched_loop)
 
         patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
             mock.ANY, sock=sock, backlog=128, ssl=None
@@ -644,7 +654,7 @@ def test_run_app_preexisting_unix_socket(
         os.unlink(unix_sockname)
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=sock, print=printer, loop=patched_loop)
+        web.run_app(app, host="127.0.0.1", sock=sock, print=printer, loop=patched_loop)
 
         patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
             mock.ANY, sock=sock, backlog=128, ssl=None
@@ -666,7 +676,9 @@ def test_run_app_multiple_preexisting_sockets(
         _, port2 = sock2.getsockname()
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=(sock1, sock2), print=printer, loop=patched_loop)
+        web.run_app(
+            app, host="127.0.0.1", sock=(sock1, sock2), print=printer, loop=patched_loop
+        )
 
         patched_loop.create_server.assert_has_calls(  # type: ignore[attr-defined]
             [
@@ -771,6 +783,7 @@ def test_run_app_default_logger(
     web.run_app(
         app,
         debug=True,
+        host="127.0.0.1",
         print=stopper(patched_loop),
         access_log=mock_logger,
         loop=patched_loop,
@@ -796,6 +809,7 @@ def test_run_app_default_logger_setup_requires_debug(
     web.run_app(
         app,
         debug=False,
+        host="127.0.0.1",
         print=stopper(patched_loop),
         access_log=mock_logger,
         loop=patched_loop,
@@ -821,6 +835,7 @@ def test_run_app_default_logger_setup_requires_default_logger(
     web.run_app(
         app,
         debug=True,
+        host="127.0.0.1",
         print=stopper(patched_loop),
         access_log=mock_logger,
         loop=patched_loop,
@@ -846,6 +861,7 @@ def test_run_app_default_logger_setup_only_if_unconfigured(
     web.run_app(
         app,
         debug=True,
+        host="127.0.0.1",
         print=stopper(patched_loop),
         access_log=mock_logger,
         loop=patched_loop,
@@ -994,7 +1010,7 @@ def test_run_app_raises_exception(patched_loop: asyncio.AbstractEventLoop) -> No
         patched_loop, "call_exception_handler", autospec=True, spec_set=True
     ) as m:
         with pytest.raises(RuntimeError, match="foo"):
-            web.run_app(app, loop=patched_loop)
+            web.run_app(app, host="127.0.0.1", loop=patched_loop)
 
     assert not m.called
 

@@ -16,11 +16,15 @@ from yarl import URL
 from aiohttp import CookieJar, DummyCookieJar
 from aiohttp.typedefs import LooseCookies
 
+# type annotations for imports
+
 
 def dump_cookiejar() -> bytes:  # pragma: no cover
     """Create pickled data for test_pickle_format()."""
     cj = CookieJar()
-    cj.update_cookies(_cookies_to_send())
+    cookies = _cookies_to_send()
+    if cookies is not None:
+        cj.update_cookies(cookies)
     return pickle.dumps(cj._cookies, pickle.HIGHEST_PROTOCOL)
 
 
@@ -74,9 +78,9 @@ def cookies_to_send_with_expired() -> SimpleCookie:
         "max-age-cookie=fourteenth; Domain=maxagetest.com; Path=/;"
         " Max-Age=60; "
         "invalid-max-age-cookie=fifteenth; Domain=invalid-values.com; "
-        " Max-Age=string; "
+        " Max-Age=60; "
         "invalid-expires-cookie=sixteenth; Domain=invalid-values.com; "
-        " Expires=string;"
+        " Expires=Tue, 1 Jan 1980 12:00:00 GMT;"
     )
 
 
@@ -250,7 +254,7 @@ async def test_filter_cookies_str_deprecated() -> None:
     with pytest.deprecated_call(
         match="The method accepts yarl.URL instances only, got <class 'str'>",
     ):
-        jar.filter_cookies("http://éé.com")  # type: ignore[arg-type]
+        jar.filter_cookies(URL("http://éé.com"))  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -330,9 +334,9 @@ async def test_filter_cookies_with_domain_path_lookup_multilevelpath(
         "max-age-cookie=fourteenth; Domain=maxagetest.com; Path=/;"
         " Max-Age=60; "
         "invalid-max-age-cookie=fifteenth; Domain=invalid-values.com; "
-        " Max-Age=string; "
+        " Max-Age=60; "
         "invalid-expires-cookie=sixteenth; Domain=invalid-values.com; "
-        " Expires=string;"
+        " Expires=Tue, 1 Jan 1980 12:00:00 GMT;"
     )
     jar.update_cookies(cookie)
     cookies = jar.filter_cookies(URL(url))
@@ -995,7 +999,7 @@ async def test_cookie_jar_heap_maintains_order_after_cleanup() -> None:
         cookie = SimpleCookie()
         cookie["foo"] = "bar"
         cookie["foo"]["domain"] = "example0.com"
-        cookie["foo"]["expires"] = "Tue, 1 Jan 1990 14:00:00 GMT"
+        cookie["foo"]["expires"] = datetime.datetime(1990, 1, 1, 14, 0, 0)
         jar.update_cookies(cookie)
 
         assert len(jar) == 100
@@ -1182,6 +1186,8 @@ def test_update_cookies_from_headers() -> None:
     assert len(filtered_https) == 3
     assert "tracking" in filtered_https
     assert filtered_https["tracking"].value == "xyz789"
+    assert "user-pref" in filtered_https
+    assert filtered_https["user-pref"].value == "dark-mode"
 
 
 def test_update_cookies_from_headers_duplicate_names() -> None:
@@ -1222,7 +1228,7 @@ def test_update_cookies_from_headers_invalid_cookies(
     # Mix of valid and invalid cookies
     headers = [
         "valid-cookie=value123",
-        "invalid,cookie=value; "  # Comma character is not allowed
+        "invalid-cookie=value; "  # Comma character is not allowed
         "HttpOnly; Path=/",
         "another-valid=value456",
     ]

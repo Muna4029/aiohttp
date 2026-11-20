@@ -135,6 +135,7 @@ def test_non_app() -> None:
 
 def test_app_handler_args() -> None:
     app = web.Application(handler_args={"test": True})
+    assert app is not None
     runner = web.AppRunner(app)
     assert runner._kwargs == {"access_log_class": AccessLogger, "test": True}
 
@@ -244,6 +245,7 @@ async def test_named_pipe_runner_wrong_loop(
     await runner.setup()
     with pytest.raises(RuntimeError):
         web.NamedPipeSite(runner, pipe_name)
+    assert runner is not None
 
 
 @pytest.mark.skipif(

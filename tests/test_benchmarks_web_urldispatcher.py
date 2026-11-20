@@ -60,7 +60,7 @@ def test_resolve_root_route(
     resolve_count = 100
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     app.router.add_route("GET", "/", handler)
@@ -92,7 +92,7 @@ def test_resolve_root_route_with_many_fixed_routes(
     resolve_count = 100
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     app.router.add_route("GET", "/", handler)
@@ -160,7 +160,7 @@ def test_resolve_single_fixed_url_with_many_routes(
     resolve_count = 100
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     for count in range(250):
@@ -192,7 +192,7 @@ def test_resolve_multiple_fixed_url_with_many_routes(
     """Resolve 250 different PlainResources routes."""
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     for count in range(250):
@@ -227,7 +227,7 @@ def test_resolve_multiple_level_fixed_url_with_many_routes(
     """Resolve 1024 different PlainResources routes."""
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     urls = [
@@ -268,7 +268,7 @@ def test_resolve_dynamic_resource_url_with_many_static_routes(
     """Resolve different a DynamicResource when there are 250 PlainResources registered."""
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     for count in range(250):
@@ -307,7 +307,7 @@ def test_resolve_dynamic_resource_url_with_many_dynamic_routes(
     """Resolve different a DynamicResource when there are 250 DynamicResources registered."""
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     for count in range(250):
@@ -348,7 +348,7 @@ def test_resolve_dynamic_resource_url_with_many_dynamic_routes_with_common_prefi
     """Resolve different a DynamicResource when there are 250 DynamicResources registered with the same common prefix."""
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        return web.Response(text="Success")
 
     app = web.Application()
     for count in range(250):

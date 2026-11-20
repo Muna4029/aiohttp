@@ -131,12 +131,12 @@ def test_guess_filename_with_default() -> None:
 def test_basic_auth1() -> None:
     # missing password here
     with pytest.raises(ValueError):
-        helpers.BasicAuth(None)  # type: ignore[arg-type]
+        helpers.BasicAuth("nkim", "")  # type: ignore[arg-type]
 
 
 def test_basic_auth2() -> None:
     with pytest.raises(ValueError):
-        helpers.BasicAuth("nkim", None)  # type: ignore[arg-type]
+        helpers.BasicAuth("nkim", "")  # type: ignore[arg-type]
 
 
 def test_basic_with_auth_colon_in_login() -> None:

@@ -28,7 +28,7 @@ __all__ = ("StreamWriter", "HttpVersion", "HttpVersion10", "HttpVersion11")
 MIN_PAYLOAD_FOR_WRITELINES = 2048
 IS_PY313_BEFORE_313_2 = (3, 13, 0) <= sys.version_info < (3, 13, 2)
 IS_PY_BEFORE_312_9 = sys.version_info < (3, 12, 9)
-SKIP_WRITELINES = IS_PY313_BEFORE_313_2 or IS_PY_BEFORE_312_9
+SKIP_WRITELINES = IS_PY313_BEFORE_313_2 or IS_PY_BEFORE_312_9 if IS_PY313_BEFORE_313_2 is not None and IS_PY_BEFORE_312_9 is not None else False
 # writelines is not safe for use
 # on Python 3.12+ until 3.12.9
 # on Python 3.13+ until 3.13.2
@@ -100,6 +100,10 @@ class StreamWriter(AbstractStreamWriter):
         transport = self._protocol.transport
         if transport is None or transport.is_closing():
             raise ClientConnectionResetError("Cannot write to closing transport")
+        try:
+            transport.write(chunk)
+        except Exception as e:
+            raise ClientConnectionResetError("Cannot write to closing transport") from e
         transport.write(chunk)
 
     def _writelines(
@@ -120,6 +124,8 @@ class StreamWriter(AbstractStreamWriter):
             transport.write(b"".join(chunks))
         else:
             transport.writelines(chunks)
+        except Exception as e:
+            raise ClientConnectionResetError("Cannot write to closing transport") from e
 
     def _write_chunked_payload(
         self, chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
@@ -364,7 +370,7 @@ class StreamWriter(AbstractStreamWriter):
 
 
 def _safe_header(string: str) -> str:
-    if "\r" in string or "\n" in string:
+    if string is None or "\r" in string or "\n" in string:
         raise ValueError(
             "Newline or carriage return detected in headers. "
             "Potential header injection attack."
@@ -373,7 +379,7 @@ def _safe_header(string: str) -> str:
 
 
 def _py_serialize_headers(status_line: str, headers: "CIMultiDict[str]") -> bytes:
-    headers_gen = (_safe_header(k) + ": " + _safe_header(v) for k, v in headers.items())
+    headers_gen = (_safe_header(k) + ": " + _safe_header(v) for k, v in headers.items() if k is not None and v is not None)
     line = status_line + "\r\n" + "\r\n".join(headers_gen) + "\r\n\r\n"
     return line.encode("utf-8")
 

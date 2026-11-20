@@ -43,7 +43,7 @@ class TokenRefreshMiddleware:
     def __init__(self, token_endpoint: str, refresh_token: str) -> None:
         self.token_endpoint = token_endpoint
         self.refresh_token = refresh_token
-        self.access_token: str | None = None
+        self.access_token: str = ""
         self.token_expires_at: float | None = None
         self._refresh_lock = asyncio.Lock()
 
@@ -97,9 +97,13 @@ class TokenRefreshMiddleware:
 
         # Refresh token if needed
         if not self.access_token or (
-            self.token_expires_at and time.time() >= self.token_expires_at
+            self.token_expires_at is not None and time.time() >= self.token_expires_at
         ):
-            await self._refresh_access_token(request.session)
+            try:
+                await self._refresh_access_token(request.session)
+            except ClientConnectorError:
+                _LOGGER.error("Server not running, cannot refresh token.")
+                return response
 
         # Add token to request
         request.headers[hdrs.AUTHORIZATION] = f"Bearer {self.access_token}"

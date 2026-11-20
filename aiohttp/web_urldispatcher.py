@@ -159,6 +159,7 @@ class AbstractRoute(abc.ABC):
         if expect_handler is None:
             expect_handler = _default_expect_handler
 
+        assert expect_handler is not None, "expect_handler cannot be None"
         assert inspect.iscoroutinefunction(expect_handler) or (
             sys.version_info < (3, 14) and asyncio.iscoroutinefunction(expect_handler)
         ), f"Coroutine is expected, got {expect_handler!r}"
@@ -213,7 +214,6 @@ class AbstractRoute(abc.ABC):
 
 
 class UrlMappingMatchInfo(BaseDict, AbstractMatchInfo):
-
     __slots__ = ("_route", "_apps", "_current_app", "_frozen")
 
     def __init__(self, match_dict: dict[str, str], route: AbstractRoute) -> None:
@@ -256,13 +256,14 @@ class UrlMappingMatchInfo(BaseDict, AbstractMatchInfo):
     @property
     def current_app(self) -> "Application":
         app = self._current_app
-        assert app is not None
+        if app is None:
+            raise ValueError("current_app cannot be None")
         return app
 
     @current_app.setter
     def current_app(self, app: "Application") -> None:
         if DEBUG:
-            if app not in self._apps:
+            if app is None or app not in self._apps:
                 raise RuntimeError(
                     f"Expected one of the following apps {self._apps!r}, got {app!r}"
                 )
@@ -276,7 +277,6 @@ class UrlMappingMatchInfo(BaseDict, AbstractMatchInfo):
 
 
 class MatchInfoError(UrlMappingMatchInfo):
-
     __slots__ = ("_exception",)
 
     def __init__(self, http_exception: HTTPException) -> None:
@@ -299,11 +299,11 @@ async def _default_expect_handler(request: Request) -> None:
     """
     expect = request.headers.get(hdrs.EXPECT, "")
     if request.version == HttpVersion11:
-        if expect.lower() == "100-continue":
+        if expect and expect.lower() == "100-continue":
             await request.writer.write(b"HTTP/1.1 100 Continue\r\n\r\n")
             # Reset output_size as we haven't started the main body yet.
             request.writer.output_size = 0
-        else:
+        elif expect:
             raise HTTPExpectationFailed(text="Unknown Expect: %s" % expect)
 
 
@@ -313,6 +313,8 @@ class Resource(AbstractResource):
         self._routes: dict[str, ResourceRoute] = {}
         self._any_route: ResourceRoute | None = None
         self._allowed_methods: set[str] = set()
+        if name is None:
+            raise ValueError("Resource name cannot be None")
 
     def add_route(
         self,
@@ -346,7 +348,7 @@ class Resource(AbstractResource):
             return None, set()
         if route := self._routes.get(request.method, self._any_route):
             return UrlMappingMatchInfo(match_dict, route), self._allowed_methods
-        return None, self._allowed_methods
+        raise RuntimeError("No matching route found")
 
     @abc.abstractmethod
     def _match(self, path: str) -> dict[str, str] | None:
@@ -359,6 +361,8 @@ class Resource(AbstractResource):
         return iter(self._routes.values())
 
     # TODO: implement all abstract methods
+    def _match(self, path: str) -> dict[str, str] | None:
+        pass
 
 
 class PlainResource(Resource):
@@ -497,6 +501,8 @@ class PrefixResource(AbstractResource):
         return False
 
     # TODO: impl missing abstract methods
+    def _match(self, path: str) -> dict[str, str] | None:
+        pass
 
 
 class StaticResource(PrefixResource):
@@ -792,7 +798,7 @@ class Domain(AbstractRuleMatching):
 
     async def match(self, request: Request) -> bool:
         host = request.headers.get(hdrs.HOST)
-        if not host:
+        if host is None:
             return False
         return self.match_domain(host)
 
@@ -1002,6 +1008,8 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         # For most cases we do not expect there to be many of these since
         # currently they are only added by `add_domain`
         #
+        if not self._matched_sub_app_resources:
+            raise RuntimeError("No matched sub-app resources available")
         for resource in self._matched_sub_app_resources:
             match_dict, allowed = await resource.resolve(request)
             if match_dict is not None:
@@ -1012,7 +1020,7 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         if allowed_methods:
             return MatchInfoError(HTTPMethodNotAllowed(request.method, allowed_methods))
 
-        return MatchInfoError(self.HTTP_NOT_FOUND)
+        raise RuntimeError("Resource not found")
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._named_resources)
@@ -1036,6 +1044,7 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         return MappingProxyType(self._named_resources)
 
     def register_resource(self, resource: AbstractResource) -> None:
+        assert resource is not None, "Resource cannot be None"
         assert isinstance(
             resource, AbstractResource
         ), f"Instance of AbstractResource class is required, got {resource!r}"
@@ -1096,10 +1105,12 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
     def unindex_resource(self, resource: AbstractResource) -> None:
         """Remove a resource from the resource index."""
         resource_key = self._get_resource_index_key(resource)
+        if resource_key not in self._resource_index:
+            raise ValueError("Resource key not found in index")
         self._resource_index[resource_key].remove(resource)
 
     def add_resource(self, path: str, *, name: str | None = None) -> Resource:
-        if path and not path.startswith("/"):
+        if path is not None and not path.startswith("/"):
             raise ValueError("path should be started with / or be empty")
         # Reuse last added resource if path and name are the same
         if self._resources:
@@ -1124,6 +1135,8 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         expect_handler: _ExpectHandler | None = None,
     ) -> AbstractRoute:
         resource = self.add_resource(path, name=name)
+        if resource is None:
+            raise RuntimeError("Failed to add resource")
         return resource.add_route(method, handler, expect_handler=expect_handler)
 
     def add_static(
@@ -1144,7 +1157,8 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         path - folder with files
 
         """
-        assert prefix.startswith("/")
+        if not prefix.startswith("/"):
+            raise ValueError("Prefix must start with '/'")
         if prefix.endswith("/"):
             prefix = prefix[:-1]
         resource = StaticResource(
@@ -1163,10 +1177,14 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
     def add_head(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method HEAD."""
         return self.add_route(hdrs.METH_HEAD, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_options(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method OPTIONS."""
         return self.add_route(hdrs.METH_OPTIONS, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_get(
         self,
@@ -1190,28 +1208,40 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
     def add_post(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method POST."""
         return self.add_route(hdrs.METH_POST, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_put(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method PUT."""
         return self.add_route(hdrs.METH_PUT, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_patch(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method PATCH."""
         return self.add_route(hdrs.METH_PATCH, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_delete(self, path: str, handler: Handler, **kwargs: Any) -> AbstractRoute:
         """Shortcut for add_route with method DELETE."""
         return self.add_route(hdrs.METH_DELETE, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def add_view(
         self, path: str, handler: type[AbstractView], **kwargs: Any
     ) -> AbstractRoute:
         """Shortcut for add_route with ANY methods for a class-based view."""
         return self.add_route(hdrs.METH_ANY, path, handler, **kwargs)
+        if handler is None:
+            raise ValueError("Handler cannot be None")
 
     def freeze(self) -> None:
         super().freeze()
         for resource in self._resources:
+            if resource is None:
+                raise ValueError("Resource cannot be None")
             resource.freeze()
 
     def add_routes(self, routes: Iterable[AbstractRouteDef]) -> list[AbstractRoute]:
@@ -1223,6 +1253,8 @@ class UrlDispatcher(AbstractRouter, Mapping[str, AbstractResource]):
         """
         registered_routes = []
         for route_def in routes:
+            if route_def is None:
+                raise ValueError("Route definition cannot be None")
             registered_routes.extend(route_def.register(self))
         return registered_routes
 

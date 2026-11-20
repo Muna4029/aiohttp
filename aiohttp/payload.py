@@ -139,14 +139,13 @@ class Payload(ABC):
     _default_content_type: str = "application/octet-stream"
     _size: int | None = None
     _consumed: bool = False  # Default: payload has not been consumed yet
+    _consumed_str: str = ""  # Default: string representation of consumed state
     _autoclose: bool = False  # Default: assume resource needs explicit closing
 
     def __init__(
         self,
         value: Any,
-        headers: (
-            _CIMultiDict | dict[str, str] | Iterable[tuple[str, str]] | None
-        ) = None,
+        headers: (_CIMultiDict | dict[str, str] | Iterable[tuple[str, str]]) = None,
         content_type: None | str | _SENTINEL = sentinel,
         filename: str | None = None,
         encoding: str | None = None,
@@ -210,7 +209,7 @@ class Payload(ABC):
     @property
     def content_type(self) -> str:
         """Content type"""
-        return self._headers[hdrs.CONTENT_TYPE]
+        return self._headers.get(hdrs.CONTENT_TYPE, "")
 
     @property
     def consumed(self) -> bool:
@@ -353,6 +352,8 @@ class BytesPayload(Payload):
             self._size = len(value)
         else:
             raise TypeError(f"value argument must be byte-ish, not {type(value)!r}")
+        if value is None:
+            raise TypeError("value cannot be None")
 
         if self._size > TOO_LARGE_BYTES_BODY:
             warnings.warn(
@@ -390,7 +391,8 @@ class BytesPayload(Payload):
             to write_with_length(writer, None).
 
         """
-        await writer.write(self._value)
+        if self._value is not None:
+            await writer.write(self._value)
 
     async def write_with_length(
         self, writer: AbstractStreamWriter, content_length: int | None
@@ -408,7 +410,8 @@ class BytesPayload(Payload):
 
         """
         if content_length is not None:
-            await writer.write(self._value[:content_length])
+            if content_length > 0:
+                await writer.write(self._value[:content_length])
         else:
             await writer.write(self._value)
 
@@ -522,7 +525,7 @@ class IOBasePayload(Payload):
         the initial _read_and_available_len call has been made.
 
         """
-        return self._value.read(remaining_content_len or READ_SIZE)  # type: ignore[no-any-return]
+        return self._value.read(remaining_content_len or READ_SIZE) or b""  # type: ignore[no-any-return]
 
     @property
     def size(self) -> int | None:
@@ -548,7 +551,8 @@ class IOBasePayload(Payload):
 
             # Return the total size from the start position
             # This ensures Content-Length is correct even after reading
-            return os.fstat(self._value.fileno()).st_size - self._start_position
+            size = os.fstat(self._value.fileno()).st_size - self._start_position
+            return size if size >= 0 else 0
         except (AttributeError, OSError):
             return None
 
@@ -593,7 +597,10 @@ class IOBasePayload(Payload):
         as well as constrained and unconstrained content lengths.
 
         """
-        loop = asyncio.get_running_loop()
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            raise RuntimeError("This method must be called from within an event loop.")
         total_written_len = 0
         remaining_content_len = content_length
 
@@ -772,6 +779,7 @@ class TextIOPayload(IOBasePayload):
         size = self.size
         chunk = self._value.read(
             min(READ_SIZE, size or READ_SIZE, remaining_content_len or READ_SIZE)
+            or READ_SIZE
         )
         return size, chunk.encode(self._encoding) if self._encoding else chunk.encode()
 
@@ -794,6 +802,8 @@ class TextIOPayload(IOBasePayload):
 
         """
         chunk = self._value.read(remaining_content_len or READ_SIZE)
+        if chunk is None:
+            raise ValueError("Chunk cannot be None")
         return chunk.encode(self._encoding) if self._encoding else chunk.encode()
 
     def decode(self, encoding: str = "utf-8", errors: str = "strict") -> str:

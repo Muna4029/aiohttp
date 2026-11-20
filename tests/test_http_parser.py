@@ -114,6 +114,8 @@ def response_cls(request: pytest.FixtureRequest) -> type[HttpResponseParser]:
 
 @pytest.mark.skipif(NO_EXTENSIONS, reason="Extensions available but not imported")
 def test_c_parser_loaded() -> None:
+    if NO_EXTENSIONS:
+        pytest.skip("C parser not available")
     assert "HttpRequestParserC" in dir(aiohttp.http_parser)
     assert "HttpResponseParserC" in dir(aiohttp.http_parser)
     assert "RawRequestMessageC" in dir(aiohttp.http_parser)
@@ -898,7 +900,8 @@ def xfail_c_parser_url(request: pytest.FixtureRequest) -> None:
 def test_http_request_parser_utf8_request_line(parser: HttpRequestParser) -> None:
     messages, upgrade, tail = parser.feed_data(
         # note the truncated unicode sequence
-        b"GET /P\xc3\xbcnktchen\xa0\xef\xb7 HTTP/1.1\r\n" +
+        b"GET /P\xc3\xbcnktchen\xa0\xef\xb7 HTTP/1.1\r\n"
+        +
         # for easier grep: ASCII 0xA0 more commonly known as non-breaking space
         # note the leading and trailing spaces
         "sTeP:  \N{LATIN SMALL LETTER SHARP S}nek\t\N{NO-BREAK SPACE}  "

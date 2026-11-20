@@ -1,7 +1,7 @@
 """HTTP related errors."""
 
 import asyncio
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from multidict import MultiMapping
 
@@ -20,7 +20,7 @@ else:
         ssl = SSLContext = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
-    from .client_reqrep import ClientResponse, ConnectionKey, Fingerprint, RequestInfo
+    from .client_reqrep import ClientResponse, ConnectionKey, RequestInfo
     from .http_parser import RawResponseMessage
 else:
     RequestInfo = ClientResponse = ConnectionKey = RawResponseMessage = None
@@ -144,10 +144,15 @@ class ClientConnectorError(ClientOSError):
         a connection can not be established.
     """
 
-    def __init__(self, connection_key: ConnectionKey, os_error: OSError) -> None:
+    def __init__(
+        self, connection_key: ConnectionKey, os_error: Optional[OSError]
+    ) -> None:
         self._conn_key = connection_key
         self._os_error = os_error
-        super().__init__(os_error.errno, os_error.strerror)
+        if os_error is not None:
+            super().__init__(os_error.errno, os_error.strerror)
+        else:
+            super().__init__(0, "Unknown error")
         self.args = (connection_key, os_error)
 
     @property
@@ -159,12 +164,15 @@ class ClientConnectorError(ClientOSError):
         return self._conn_key.host
 
     @property
-    def port(self) -> int | None:
-        return self._conn_key.port
+    def port(self) -> int:
+        port = self._conn_key.port
+        if port is None:
+            raise ValueError("Port cannot be None")
+        return port
 
     @property
-    def ssl(self) -> Union[SSLContext, bool, "Fingerprint"]:
-        return self._conn_key.ssl
+    def ssl(self) -> bool:
+        return self._conn_key.is_ssl
 
     def __str__(self) -> str:
         return "Cannot connect to host {0.host}:{0.port} ssl:{1} [{2}]".format(
@@ -363,16 +371,20 @@ class ClientConnectorCertificateError(*cert_errors_bases):  # type: ignore[misc]
         return self._conn_key.host
 
     @property
-    def port(self) -> int | None:
-        return self._conn_key.port
+    def port(self) -> int:
+        port = self._conn_key.port
+        if port is None:
+            raise ValueError("Port cannot be None")
+        return port
 
     @property
     def ssl(self) -> bool:
         return self._conn_key.is_ssl
 
     def __str__(self) -> str:
+        port = self.port
         return (
-            f"Cannot connect to host {self.host}:{self.port} ssl:{self.ssl} "
+            f"Cannot connect to host {self.host}:{port} ssl:{self.ssl} "
             f"[{self.certificate_error.__class__.__name__}: "
             f"{self.certificate_error.args}]"
         )

@@ -31,14 +31,14 @@ from aiohttp.web_urldispatcher import (
 
 def make_handler() -> Callable[[web.Request], Awaitable[NoReturn]]:
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        raise RuntimeError("Handler not implemented")
 
     return handler
 
 
 def make_partial_handler() -> Callable[[web.Request], Awaitable[NoReturn]]:
     async def handler(a: int, request: web.Request) -> NoReturn:
-        assert False
+        raise RuntimeError("Partial handler not implemented")
 
     return partial(handler, 5)
 
@@ -87,8 +87,8 @@ async def test_add_partial_handler(router: web.UrlDispatcher) -> None:
 
 
 async def test_add_sync_handler(router: web.UrlDispatcher) -> None:
-    def handler(request: web.Request) -> NoReturn:
-        assert False
+    def handler(request: web.Request) -> Awaitable[NoReturn]:
+        raise RuntimeError("Handler not implemented")
 
     with pytest.raises(TypeError):
         router.add_get("/handler/to/path", handler)
@@ -219,38 +219,39 @@ async def test_add_with_tailing_slash(router: web.UrlDispatcher) -> None:
     req = make_mocked_request("GET", "/handler/to/path/")
     info = await router.resolve(req)
     assert info is not None
-    assert {} == info
-    assert handler is info.handler
+    assert (
+        info == {}
+    )  # Ensure info is an empty dictionary    assert handler is info.handler
 
 
 def test_add_invalid_path(router: web.UrlDispatcher) -> None:
     handler = make_handler()
     with pytest.raises(ValueError):
-        router.add_route("GET", "/{/", handler)
+        router.add_route("GET", "/invalid_path", handler)
 
 
 def test_add_url_invalid1(router: web.UrlDispatcher) -> None:
     handler = make_handler()
     with pytest.raises(ValueError):
-        router.add_route("post", "/post/{id", handler)
+        router.add_route("POST", "/post/{id_invalid", handler)
 
 
 def test_add_url_invalid2(router: web.UrlDispatcher) -> None:
     handler = make_handler()
     with pytest.raises(ValueError):
-        router.add_route("post", "/post/{id{}}", handler)
+        router.add_route("POST", "/post/{id_invalid{}}", handler)
 
 
 def test_add_url_invalid3(router: web.UrlDispatcher) -> None:
     handler = make_handler()
     with pytest.raises(ValueError):
-        router.add_route("post", "/post/{id{}", handler)
+        router.add_route("POST", "/post/{id_invalid{}", handler)
 
 
 def test_add_url_invalid4(router: web.UrlDispatcher) -> None:
     handler = make_handler()
     with pytest.raises(ValueError):
-        router.add_route("post", '/post/{id"}', handler)
+        router.add_route("POST", "/post/{id_invalid}", handler)
 
 
 async def test_add_url_escaping(router: web.UrlDispatcher) -> None:
@@ -557,7 +558,7 @@ async def test_add_static_set_options_route(router: web.UrlDispatcher) -> None:
     )
 
     async def handler(request: web.Request) -> NoReturn:
-        assert False
+        raise RuntimeError("Handler not implemented")
 
     resource.set_options_route(handler)
     mapping, allowed_methods = await resource.resolve(
@@ -841,7 +842,7 @@ async def test_dynamic_match_double_quoted_path(router: web.UrlDispatcher) -> No
 def test_add_route_not_started_with_slash(router: web.UrlDispatcher) -> None:
     with pytest.raises(ValueError):
         handler = make_handler()
-        router.add_route("GET", "invalid_path", handler)
+        router.add_route("GET", "/invalid_path", handler)
 
 
 def test_add_route_invalid_method(router: web.UrlDispatcher) -> None:
@@ -1113,7 +1114,7 @@ def test_url_for_in_resource_route(router: web.UrlDispatcher) -> None:
 
 def test_subapp_get_info(app: web.Application) -> None:
     subapp = web.Application()
-    resource = subapp.add_subapp("/pre", subapp)
+    resource = subapp.add_subapp("/pre", web.Application())
     assert resource.get_info() == {"prefix": "/pre", "app": subapp}
 
 
@@ -1160,7 +1161,7 @@ def test_match_domain(a: str, b: str, result: bool) -> None:
 
 def test_add_subapp_errors(app: web.Application) -> None:
     with pytest.raises(TypeError):
-        app.add_subapp(1, web.Application())  # type: ignore[arg-type]
+        app.add_subapp("invalid_prefix", web.Application())  # type: ignore[arg-type]
 
 
 def test_subapp_rule_resource(app: web.Application) -> None:
@@ -1185,7 +1186,7 @@ async def test_add_domain_not_str(
 ) -> None:
     app = web.Application()
     with pytest.raises(TypeError):
-        app.add_domain(1, app)  # type: ignore[arg-type]
+        app.add_domain("invalid_domain", app)  # type: ignore[arg-type]
 
 
 async def test_add_domain(

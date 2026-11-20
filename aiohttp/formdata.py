@@ -22,7 +22,7 @@ class FormData:
         self,
         fields: Iterable[Any] = (),
         quote_fields: bool = True,
-        charset: str | None = None,
+        charset: str = "",
         boundary: str | None = None,
         *,
         default_to_multipart: bool = False,
@@ -49,8 +49,8 @@ class FormData:
         name: str,
         value: Any,
         *,
-        content_type: str | None = None,
-        filename: str | None = None,
+        content_type: str = "",
+        filename: str = "",
     ) -> None:
         if isinstance(value, (io.IOBase, bytes, bytearray, memoryview)):
             self._is_multipart = True

@@ -277,7 +277,7 @@ class TestClient(Generic[_Request, _ApplicationNone]):
         # TODO(PY311): Use Unpack to specify ClientSession kwargs.
         if not isinstance(server, BaseTestServer):
             raise TypeError(
-                "server must be TestServer instance, found type: %r" % type(server)
+                "server must be an instance of BaseTestServer, found type: %r" % type(server)
             )
         self._server = server
         if cookie_jar is None:
@@ -461,7 +461,7 @@ class TestClient(Generic[_Request, _ApplicationNone]):
                 resp.close()
             for ws in self._websockets:
                 await ws.close()
-            await self._session.close()
+            if self._server:
             await self._server.close()
             self._closed = True
 
@@ -500,21 +500,29 @@ class AioHTTPTestCase(IsolatedAsyncioTestCase, ABC):
         """
 
     async def asyncSetUp(self) -> None:
-        self.app = await self.get_application()
+        app = await self.get_application()
+        if app is None:
+            raise RuntimeError('Application could not be retrieved')
+        self.app = app
         self.server = await self.get_server(self.app)
         self.client = await self.get_client(self.server)
 
         await self.client.start_server()
 
     async def asyncTearDown(self) -> None:
-        await self.client.close()
+        if self.client:
+            await self.client.close()
 
     async def get_server(self, app: Application) -> TestServer:
         """Return a TestServer instance."""
+        if app is None:
+            raise RuntimeError('Cannot create server without a valid application')
         return TestServer(app)
 
     async def get_client(self, server: TestServer) -> TestClient[Request, Application]:
         """Return a TestClient instance."""
+        if server is None:
+            raise RuntimeError('Cannot create client without a valid server')
         return TestClient(server)
 
 

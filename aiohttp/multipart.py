@@ -170,10 +170,10 @@ def parse_content_disposition(
 
 def content_disposition_filename(
     params: Mapping[str, str], name: str = "filename"
-) -> str | None:
+) -> str:
     name_suf = "%s*" % name
     if not params:
-        return None
+        return ""
     elif name_suf in params:
         return params[name_suf]
     elif name in params:
@@ -192,7 +192,7 @@ def content_disposition_filename(
             else:
                 break
         if not parts:
-            return None
+            return ""
         value = "".join(parts)
         if "'" in value:
             encoding, _, value = value.split("'", 2)
@@ -260,7 +260,7 @@ class BodyPartReader:
         content: StreamReader,
         *,
         subtype: str = "mixed",
-        default_charset: str | None = None,
+        default_charset: str = "utf-8",
     ) -> None:
         self.headers = headers
         self._boundary = boundary
@@ -471,7 +471,7 @@ class BodyPartReader:
         if encoding is not None:
             real_encoding = encoding
         else:
-            real_encoding = self.get_charset(default="utf-8")
+            real_encoding = self.get_charset(default="utf-8") or "utf-8"
         try:
             decoded_data = data.rstrip().decode(real_encoding)
         except UnicodeDecodeError:
@@ -531,21 +531,25 @@ class BodyPartReader:
         return mimetype.parameters.get("charset", self._default_charset or default)
 
     @reify
-    def name(self) -> str | None:
+    def name(self) -> str:
         """Returns name specified in Content-Disposition header.
 
-        If the header is missing or malformed, returns None.
+        If the header is missing or malformed, returns "".
         """
-        _, params = parse_content_disposition(self.headers.get(CONTENT_DISPOSITION))
+        _, params = parse_content_disposition(
+            self.headers.get(CONTENT_DISPOSITION)
+        ) or (None, {})
         return content_disposition_filename(params, "name")
 
     @reify
-    def filename(self) -> str | None:
+    def filename(self) -> str:
         """Returns filename specified in Content-Disposition header.
 
-        Returns None if the header is missing or malformed.
+        Returns "" if the header is missing or malformed.
         """
-        _, params = parse_content_disposition(self.headers.get(CONTENT_DISPOSITION))
+        _, params = parse_content_disposition(
+            self.headers.get(CONTENT_DISPOSITION)
+        ) or (None, {})
         return content_disposition_filename(params, "filename")
 
 
@@ -805,6 +809,9 @@ class MultipartWriter(Payload):
         # so we need to ensure we don't lose anything during conversion.
         # As a result, require the boundary to be ASCII only.
         # In both situations.
+
+        if boundary is None:
+            raise ValueError("boundary cannot be None")
 
         try:
             self._boundary = boundary.encode("ascii")

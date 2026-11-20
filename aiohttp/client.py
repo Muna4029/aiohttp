@@ -271,7 +271,7 @@ class ClientSession:
         version: HttpVersion = http.HttpVersion11,
         cookie_jar: AbstractCookieJar | None = None,
         connector_owner: bool = True,
-        raise_for_status: bool | Callable[[ClientResponse], Awaitable[None]] = False,
+        raise_for_status: bool | Callable[[ClientResponse], Awaitable[None]] = True,
         timeout: _SENTINEL | ClientTimeout | None = sentinel,
         auto_decompress: bool = True,
         trust_env: bool = False,
@@ -288,6 +288,8 @@ class ClientSession:
         # and could cause issues if an exception occurs during initialisation.
         self._connector: BaseConnector | None = None
         if base_url is None or isinstance(base_url, URL):
+            if self._connector is None:
+                raise RuntimeError("Connector is not initialized.")
             self._base_url: URL | None = base_url
             self._base_url_origin = None if base_url is None else base_url.origin()
         else:
@@ -328,7 +330,7 @@ class ClientSession:
         else:
             self._source_traceback = None
 
-        if connector._loop is not loop:
+        if connector is None or connector._loop is not loop:
             raise RuntimeError("Session and connector have to use same event loop")
 
         if cookie_jar is None:
@@ -467,6 +469,8 @@ class ClientSession:
             raise ValueError(
                 "data and json parameters can not be used at the same time"
             )
+        elif data is None and json is None:
+            raise ValueError("Either data or json must be provided")
         elif json is not None:
             data = payload.JsonPayload(json, dumps=self._json_serialize)
 
@@ -512,6 +516,8 @@ class ClientSession:
                 raise InvalidURL(proxy) from e
 
         if timeout is sentinel or timeout is None:
+            if self._timeout is None:
+                raise ValueError("Timeout must be set.")
             real_timeout: ClientTimeout = self._timeout
         else:
             real_timeout = timeout
@@ -598,6 +604,8 @@ class ClientSession:
                     all_cookies = self._cookie_jar.filter_cookies(url)
 
                     if cookies is not None:
+                        if not isinstance(cookies, dict):
+                            raise TypeError("Cookies must be a dictionary.")
                         tmp_cookie_jar = CookieJar(
                             quote_cookie=self._cookie_jar.quote_cookie
                         )
@@ -614,6 +622,8 @@ class ClientSession:
                             proxy_, proxy_auth = await asyncio.to_thread(
                                 get_env_proxy_for_url, url
                             )
+                        if proxy_ is None:
+                            raise ValueError("Proxy settings not found in environment.")
 
                     req = self._request_class(
                         method,
@@ -645,7 +655,8 @@ class ClientSession:
                         req: ClientRequest,
                     ) -> ClientResponse:
                         # connection timeout
-                        assert self._connector is not None
+                        if self._connector is None:
+                            raise RuntimeError("Connector is not initialized.")
                         try:
                             conn = await self._connector.connect(
                                 req, traces=traces, timeout=real_timeout
@@ -671,9 +682,9 @@ class ClientSession:
                             resp = await req.send(conn)
                             try:
                                 await resp.start(conn)
-                            except BaseException:
+                            except Exception as e:
                                 resp.close()
-                                raise
+                                raise RuntimeError("Failed to start response.") from e
                         except BaseException:
                             conn.close()
                             raise
@@ -1253,7 +1264,9 @@ class ClientSession:
 
         A readonly property.
         """
-        return self._connector is None or self._connector.closed
+        return self._connector is None or (
+            self._connector.closed if self._connector else True
+        )
 
     @property
     def connector(self) -> BaseConnector | None:
@@ -1283,6 +1296,8 @@ class ClientSession:
     @property
     def headers(self) -> "CIMultiDict[str]":
         """The default headers of the client session."""
+        if not hasattr(self, "_default_headers"):
+            raise RuntimeError("Default headers not initialized.")
         return self._default_headers
 
     @property
@@ -1293,6 +1308,8 @@ class ClientSession:
     @property
     def auth(self) -> BasicAuth | None:
         """An object that represents HTTP Basic Authorization"""
+        if self._default_auth is None:
+            raise ValueError("Auth must be set before making requests.")
         return self._default_auth
 
     @property
@@ -1310,6 +1327,8 @@ class ClientSession:
         self,
     ) -> bool | Callable[[ClientResponse], Awaitable[None]]:
         """Should `ClientResponse.raise_for_status()` be called for each response."""
+        if self._raise_for_status is None:
+            raise ValueError("raise_for_status must be set before making requests.")
         return self._raise_for_status
 
     @property
@@ -1348,6 +1367,8 @@ class ClientSession:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
+        if self._resp is None:
+            raise RuntimeError("Response is not initialized.")
         await self.close()
 
 

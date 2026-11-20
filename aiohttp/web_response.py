@@ -67,7 +67,6 @@ CONTENT_CODINGS = {coding.value: coding for coding in ContentCoding}
 
 
 class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
-
     _body: None | bytes | bytearray | Payload
     _length_check = True
     _body = None
@@ -197,7 +196,7 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
     @property
     def content_length(self) -> int | None:
         # Just a placeholder for adding setter
-        return super().content_length
+        return None
 
     @content_length.setter
     def content_length(self, value: int | None) -> None:
@@ -218,14 +217,12 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
 
     @content_type.setter
     def content_type(self, value: str) -> None:
-        self.content_type  # read header values if needed
         self._content_type = str(value)
         self._generate_content_type_header()
 
     @property
     def charset(self) -> str | None:
-        # Just a placeholder for adding setter
-        return super().charset
+        return None
 
     @charset.setter
     def charset(self, value: str | None) -> None:
@@ -441,9 +438,9 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
     async def write(
         self, data: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
     ) -> None:
-        assert isinstance(
-            data, (bytes, bytearray, memoryview)
-        ), "data argument must be byte-ish (%r)" % type(data)
+        assert isinstance(data, (bytes, bytearray, memoryview)), (
+            "data argument must be byte-ish (%r)" % type(data)
+        )
 
         if self._eof_sent:
             raise RuntimeError("Cannot call write() after write_eof()")
@@ -463,9 +460,9 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
         await self._payload_writer.drain()
 
     async def write_eof(self, data: bytes = b"") -> None:
-        assert isinstance(
-            data, (bytes, bytearray, memoryview)
-        ), "data argument must be byte-ish (%r)" % type(data)
+        assert isinstance(data, (bytes, bytearray, memoryview)), (
+            "data argument must be byte-ish (%r)" % type(data)
+        )
 
         if self._eof_sent:
             return
@@ -514,7 +511,6 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
 
 
 class Response(StreamResponse):
-
     _compressed_body: bytes | None = None
     _send_headers_immediately = False
 
@@ -550,6 +546,8 @@ class Response(StreamResponse):
                         "content_type or charset params "
                         "is forbidden"
                     )
+                if not isinstance(text, str):
+                    raise TypeError("text argument must be str (%r)" % type(text))
             else:
                 # fast path for filling headers
                 if not isinstance(text, str):
@@ -624,7 +622,8 @@ class Response(StreamResponse):
 
     @text.setter
     def text(self, text: str) -> None:
-        assert isinstance(text, str), "text argument must be str (%r)" % type(text)
+        if not isinstance(text, str):
+            raise TypeError("text argument must be str (%r)" % type(text))
 
         if self.content_type == "application/octet-stream":
             self.content_type = "text/plain"

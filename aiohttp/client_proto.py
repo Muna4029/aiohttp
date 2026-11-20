@@ -287,6 +287,10 @@ class ResponseHandler(BaseProtocol, DataQueue[tuple[RawResponseMessage, StreamRe
         self.set_exception(exc)
         if self._payload is not None:
             set_exception(self._payload, exc)
+        else:
+            # Handle the case where self._payload is None
+            # You may want to log this or raise a different exception
+            pass
 
     def data_received(self, data: bytes) -> None:
         self._reschedule_timeout()
@@ -318,7 +322,11 @@ class ResponseHandler(BaseProtocol, DataQueue[tuple[RawResponseMessage, StreamRe
                 # connection.release() could be called BEFORE
                 # data_received(), the transport is already
                 # closed in this case
-                self.transport.close()
+                try:
+                    self.transport.close()
+                except AttributeError:
+                    # Handle the case where transport is already closed
+                    pass
             # should_close is True after the call
             if isinstance(underlying_exc, HttpProcessingError):
                 exc = HttpProcessingError(

@@ -192,7 +192,7 @@ def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
         i = match.end(0)
 
         # Validate the name
-        if not key or not _COOKIE_NAME_RE.match(key):
+        if key is None or not _COOKIE_NAME_RE.match(key):
             internal_logger.warning("Can not load cookie: Illegal cookie name %r", key)
             continue
 
@@ -263,7 +263,9 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
                 if current_morsel is not None:
                     attr_lower_key = lower_key[1:]
                     if attr_lower_key in _COOKIE_KNOWN_ATTRS:
-                        current_morsel[attr_lower_key] = value or ""
+                        current_morsel[attr_lower_key] = (
+                            value if value is not None else ""
+                        )
             elif lower_key in _COOKIE_KNOWN_ATTRS:
                 if not morsel_seen:
                     # Invalid cookie string - attribute before cookie
@@ -272,7 +274,7 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
                     # Boolean attribute with any value should be True
                     if current_morsel is not None and current_morsel.isReservedKey(key):
                         current_morsel[lower_key] = True
-                elif value is None:
+                elif value is None and key is not None:
                     # Invalid cookie string - non-boolean attribute without value
                     break
                 elif current_morsel is not None:
@@ -281,7 +283,11 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
             elif value is not None:
                 # This is a cookie name=value pair
                 # Validate the name
-                if key in _COOKIE_KNOWN_ATTRS or not _COOKIE_NAME_RE.match(key):
+                if (
+                    key is None
+                    or key in _COOKIE_KNOWN_ATTRS
+                    or not _COOKIE_NAME_RE.match(key)
+                ):
                     internal_logger.warning(
                         "Can not load cookies: Illegal cookie name %r", key
                     )

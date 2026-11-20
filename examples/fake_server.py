@@ -12,7 +12,7 @@ from aiohttp.resolver import DefaultResolver
 class FakeResolver(AbstractResolver):
     _LOCAL_HOST = {0: "127.0.0.1", socket.AF_INET: "127.0.0.1", socket.AF_INET6: "::1"}
 
-    def __init__(self, fakes: dict[str, int]) -> None:
+    def __init__(self, fakes: dict) -> None:
         """fakes -- dns -> port dict"""
         self._fakes = fakes
         self._resolver = DefaultResolver()
@@ -36,7 +36,8 @@ class FakeResolver(AbstractResolver):
                 }
             ]
         else:
-            return await self._resolver.resolve(host, port, family)
+            result = await self._resolver.resolve(host, port, family)
+            return result if result is not None else []
 
     async def close(self) -> None:
         await self._resolver.close()
@@ -61,6 +62,8 @@ class FakeFacebook:
     async def start(self) -> dict[str, int]:
         port = test_utils.unused_port()
         await self.runner.setup()
+        if not self.runner:
+            raise RuntimeError("Server not initialized")
         site = web.TCPSite(self.runner, "127.0.0.1", port, ssl_context=self.ssl_context)
         await site.start()
         return {"graph.facebook.com": port}
@@ -100,7 +103,7 @@ async def main() -> None:
     fake_facebook = FakeFacebook()
     info = await fake_facebook.start()
     resolver = FakeResolver(info)
-    connector = TCPConnector(resolver=resolver, ssl=False)
+    connector = TCPConnector(resolver=resolver, ssl=True)
 
     async with ClientSession(connector=connector) as session:
         async with session.get(

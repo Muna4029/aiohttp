@@ -58,14 +58,13 @@ THRESHOLD_CONNLOST_ACCESS: Final[int] = 5
 @frozen_dataclass_decorator
 class WebSocketReady:
     ok: bool
-    protocol: str | None
+    protocol: Optional[str]
 
     def __bool__(self) -> bool:
         return self.ok
 
 
 class WebSocketResponse(StreamResponse):
-
     _length_check: bool = False
     _ws_protocol: str | None = None
     _writer: WebSocketWriter | None = None
@@ -498,25 +497,28 @@ class WebSocketResponse(StreamResponse):
             self._set_code_close_transport(WSCloseCode.ABNORMAL_CLOSURE)
             return True
 
-    def _set_closing(self, code: int) -> None:
+    def _set_closing(self, code: Optional[int]) -> None:
         """Set the close code and mark the connection as closing."""
         self._closing = True
         self._close_code = code
         self._cancel_heartbeat()
 
-    def _set_code_close_transport(self, code: int) -> None:
+    def _set_code_close_transport(self, code: Optional[int]) -> None:
         """Set the close code and close the transport."""
         self._close_code = code
         self._close_transport()
 
     def _close_transport(self) -> None:
         """Close the transport."""
-        if self._req is not None and self._req.transport is not None:
-            self._req.transport.close()
+        if self._req is not None:
+            if self._req.transport is not None:
+                self._req.transport.close()
 
     async def receive(self, timeout: float | None = None) -> WSMessage:
         if self._reader is None:
             raise RuntimeError("Call .prepare() first")
+        # Additional logging for debugging
+        print("_reader is None, ensure .prepare() is called before receive.")
 
         receive_timeout = timeout or self._receive_timeout
         while True:
@@ -525,7 +527,7 @@ class WebSocketResponse(StreamResponse):
 
             if self._closed:
                 self._conn_lost += 1
-                if self._conn_lost >= THRESHOLD_CONNLOST_ACCESS:
+                if self._conn_lost > THRESHOLD_CONNLOST_ACCESS:
                     raise RuntimeError("WebSocket connection is closed.")
                 return WS_CLOSED_MESSAGE
             elif self._closing:
@@ -560,6 +562,8 @@ class WebSocketResponse(StreamResponse):
                 return WSMessageError(data=exc)
             except Exception as exc:
                 self._exception = exc
+                # Log the exception for debugging
+                print(f"Exception occurred: {exc}")
                 self._set_closing(WSCloseCode.ABNORMAL_CLOSURE)
                 await self.close()
                 return WSMessageError(data=exc)

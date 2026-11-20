@@ -243,7 +243,7 @@ class ClientWebSocketResponse:
         if not isinstance(data, str):
             raise TypeError("data argument must be str (%r)" % type(data))
         await self._writer.send_frame(
-            data.encode("utf-8"), WSMsgType.TEXT, compress=compress
+            (data or "").encode("utf-8"), WSMsgType.TEXT, compress=compress
         )
 
     async def send_bytes(self, data: bytes, compress: int | None = None) -> None:
@@ -312,10 +312,10 @@ class ClientWebSocketResponse:
     async def receive(self, timeout: float | None = None) -> WSMessage:
         receive_timeout = timeout or self._timeout.ws_receive
 
-        while True:
-            if self._waiting:
-                raise RuntimeError("Concurrent call to receive() is not allowed")
+        if self._waiting:
+            raise RuntimeError("Concurrent call to receive() is not allowed")
 
+        while True:
             if self._closed:
                 return WS_CLOSED_MESSAGE
             elif self._closing:

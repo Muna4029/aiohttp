@@ -273,7 +273,7 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
     @reify
     def secure(self) -> bool:
         """A bool indicating if the request is handled with SSL."""
-        return self.scheme == "https"
+        return self.scheme == "https" if self.scheme is not None else False
 
     @reify
     def forwarded(self) -> tuple[Mapping[str, str], ...]:
@@ -383,7 +383,7 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
         For historical reasons, the port number may be included.
         """
         host = self._message.headers.get(hdrs.HOST)
-        if host is not None:
+        if host:
             return host
         return socket.getfqdn()
 
@@ -400,14 +400,17 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
             return None
         if isinstance(self._transport_peername, (list, tuple)):
             return str(self._transport_peername[0])
-        return str(self._transport_peername)
+        return str(self._transport_peername) if self._transport_peername else None
 
     @reify
     def url(self) -> URL:
         """The full URL of the request."""
         # authority is used here because it may include the port number
         # and we want yarl to parse it correctly
-        return URL.build(scheme=self.scheme, authority=self.host).join(self._rel_url)
+        return URL.build(
+            scheme=self.scheme if self.scheme is not None else "http",
+            authority=self.host if self.host is not None else "",
+        ).join(self._rel_url)
 
     @reify
     def path(self) -> str:
@@ -543,7 +546,11 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
         # that accepts special characters in cookie names (fixes #2683)
         parsed = parse_cookie_header(self.headers.get(hdrs.COOKIE, ""))
         # Extract values from Morsel objects
-        return MappingProxyType({name: morsel.value for name, morsel in parsed})
+        return (
+            MappingProxyType({name: morsel.value for name, morsel in parsed})
+            if parsed
+            else {}
+        )
 
     @reify
     def http_range(self) -> "slice[int, int, int]":
@@ -589,12 +596,12 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
     @property
     def can_read_body(self) -> bool:
         """Return True if request's HTTP BODY can be read, False otherwise."""
-        return not self._payload.at_eof()
+        return not self._payload.at_eof() if self._payload else False
 
     @reify
     def body_exists(self) -> bool:
         """Return True if request has HTTP BODY, False otherwise."""
-        return type(self._payload) is not EmptyStreamReader
+        return type(self._payload) is not EmptyStreamReader if self._payload else False
 
     async def release(self) -> None:
         """Release request.
@@ -629,6 +636,8 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
         """Return BODY as text using encoding from .charset."""
         bytes_body = await self.read()
         encoding = self.charset or "utf-8"
+        if bytes_body is None:
+            raise HTTPUnsupportedMediaType()
         try:
             return bytes_body.decode(encoding)
         except LookupError:
@@ -642,7 +651,7 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
     ) -> Any:
         """Return BODY as JSON."""
         body = await self.text()
-        if content_type:
+        if content_type and self.content_type:
             if not is_expected_content_type(self.content_type, content_type):
                 raise HTTPBadRequest(
                     text=(
@@ -783,7 +792,11 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
         set_exception(self._payload, exc)
 
     def _finish(self) -> None:
-        if self._post is None or self.content_type != "multipart/form-data":
+        if (
+            self._post is None
+            or self.content_type is None
+            or self.content_type != "multipart/form-data"
+        ):
             return
 
         # NOTE: Release file descriptors for the
@@ -792,11 +805,11 @@ class BaseRequest(MutableMapping[str, Any], HeadersMixin):
         # NOTE: via HTTP POST request.
         for file_name, file_field_object in self._post.items():
             if isinstance(file_field_object, FileField):
-                file_field_object.file.close()
+                if file_field_object.file is not None:
+                    file_field_object.file.close()
 
 
 class Request(BaseRequest):
-
     _match_info: Optional["UrlMappingMatchInfo"] = None
 
     def clone(

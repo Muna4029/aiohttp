@@ -9,8 +9,10 @@ import os
 
 from aiohttp import web
 
-WS_FILE = os.path.join(os.path.dirname(__file__), "websocket.html")
-sockets = web.AppKey("sockets", list[web.WebSocketResponse])
+WS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "websocket.html")
+sockets = web.AppKey(
+    "sockets", list[web.WebSocketResponse] if web.WebSocketResponse else []
+)
 
 
 async def wshandler(request: web.Request) -> web.WebSocketResponse | web.Response:
@@ -28,7 +30,8 @@ async def wshandler(request: web.Request) -> web.WebSocketResponse | web.Respons
         print("Someone joined.")
         for ws in request.app[sockets]:
             await ws.send_str("Someone joined")
-        request.app[sockets].append(resp)
+        if isinstance(request.app[sockets], list):
+            request.app[sockets].append(resp)
 
         async for msg in resp:
             if msg.type is web.WSMsgType.TEXT:
@@ -40,7 +43,8 @@ async def wshandler(request: web.Request) -> web.WebSocketResponse | web.Respons
         return resp
 
     finally:
-        request.app[sockets].remove(resp)
+        if resp in request.app[sockets]:
+            request.app[sockets].remove(resp)
         print("Someone disconnected.")
         for ws in request.app[sockets]:
             await ws.send_str("Someone disconnected.")
