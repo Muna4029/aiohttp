@@ -646,7 +646,6 @@ class TimeoutHandle:
 
 
 class BaseTimerContext(ContextManager["BaseTimerContext"]):
-
     __slots__ = ()
 
     def assert_timeout(self) -> None:
@@ -654,7 +653,6 @@ class BaseTimerContext(ContextManager["BaseTimerContext"]):
 
 
 class TimerNoop(BaseTimerContext):
-
     __slots__ = ()
 
     def __enter__(self) -> BaseTimerContext:
@@ -754,7 +752,7 @@ class HeadersMixin:
     _headers: MultiMapping[str]
     _content_type: str | None = None
     _content_dict: dict[str, str] | None = None
-    _stored_content_type: str | None | _SENTINEL = sentinel
+    _stored_content_type: str | None = sentinel
 
     def _parse_content_type(self, raw: str | None) -> None:
         self._stored_content_type = raw
