@@ -257,12 +257,12 @@ class ClientSession:
 
     def __init__(
         self,
-        base_url: StrOrURL | None = None,
+        base_url: str | None = None,
         *,
         connector: BaseConnector | None = None,
         cookies: LooseCookies | None = None,
         headers: LooseHeaders | None = None,
-        proxy: StrOrURL | None = None,
+        proxy: str | None = None,
         proxy_auth: BasicAuth | None = None,
         skip_auto_headers: Iterable[str] | None = None,
         auth: BasicAuth | None = None,
@@ -1466,7 +1466,7 @@ else:
 
     def request(
         method: str,
-        url: StrOrURL,
+        url: str,
         *,
         version: HttpVersion = http.HttpVersion11,
         connector: BaseConnector | None = None,

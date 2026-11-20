@@ -19,6 +19,8 @@ from aiohttp.client_reqrep import (
 )
 from aiohttp.connector import _SSL_CONTEXT_VERIFIED
 from aiohttp.helpers import TimerNoop
+from typing import TYPE_CHECKING
+
 
 if sys.version_info >= (3, 11):
     from typing import Unpack
@@ -36,6 +38,8 @@ else:
     autospec=True,
     spec_set=True,
 )
+from unittest import mock
+
 async def test_connect(  # type: ignore[misc]
     start_connection: mock.Mock,
     ClientRequestMock: mock.Mock,
@@ -797,7 +801,8 @@ async def test_https_connect_http_proxy_error(  # type: ignore[misc]
         original_url=url,
     )
     with mock.patch.object(proxy_req, "_send", autospec=True, return_value=proxy_resp):
-        with mock.patch.object(proxy_resp, "start", autospec=True) as m:
+        with mock.patch.object(
+            proxy_resp, "start", autospec=True) as m:
             m.return_value.status = 400
             m.return_value.reason = "bad request"
 
@@ -968,6 +973,8 @@ async def test_proxy_auth_property(
         loop=event_loop,
     )
     assert ("user", "pass", "latin1") == req.proxy_auth
+from aiohttp import helpers
+
 
 
 async def test_proxy_auth_property_default(
@@ -981,6 +988,8 @@ async def test_proxy_auth_property_default(
         loop=event_loop,
     )
     assert req.proxy_auth is None
+from aiohttp import helpers
+
 
 
 @mock.patch("aiohttp.connector.ClientRequestBase")

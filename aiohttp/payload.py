@@ -548,7 +548,9 @@ class IOBasePayload(Payload):
 
             # Return the total size from the start position
             # This ensures Content-Length is correct even after reading
-            return os.fstat(self._value.fileno()).st_size - self._start_position
+            if hasattr(self._value, 'fileno'):
+                return os.fstat(self._value.fileno()).st_size - self._start_position
+            return None
         except (AttributeError, OSError):
             return None
 
@@ -671,6 +673,8 @@ class IOBasePayload(Payload):
         self._consumed = True  # Mark as consumed to prevent further writes
         # Schedule file closing without awaiting to prevent cancellation issues
         loop = asyncio.get_running_loop()
+        if self._value is not None:
+            await self._value.close()
         close_future = loop.run_in_executor(None, self._value.close)
         # Hold a strong reference to the future to prevent it from being
         # garbage collected before it completes.

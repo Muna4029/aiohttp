@@ -1,4 +1,7 @@
-"""HTTP related errors."""
+"""HTTP related errors.
+
+This module defines various exceptions related to HTTP client operations.
+"""
 
 import asyncio
 from typing import TYPE_CHECKING, Union
@@ -6,6 +9,10 @@ from typing import TYPE_CHECKING, Union
 from multidict import MultiMapping
 
 from .typedefs import StrOrURL
+
+if TYPE_CHECKING:
+    from .client_reqrep import ClientResponse, ConnectionKey, Fingerprint, RequestInfo
+    from .http_parser import RawResponseMessage
 
 try:
     import ssl
@@ -18,7 +25,7 @@ if TYPE_CHECKING:
     from .client_reqrep import ClientResponse, ConnectionKey, Fingerprint, RequestInfo
     from .http_parser import RawResponseMessage
 else:
-    RequestInfo = ClientResponse = ConnectionKey = RawResponseMessage = None
+    RequestInfo = ClientResponse = ConnectionKey = RawResponseMessage = None  # type: ignore
 
 __all__ = (
     "ClientError",

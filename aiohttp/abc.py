@@ -47,7 +47,6 @@ class AbstractRouter(ABC):
 
 
 class AbstractMatchInfo(ABC):
-
     __slots__ = ()
 
     @property  # pragma: no branch

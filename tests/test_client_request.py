@@ -1778,7 +1778,7 @@ async def test_basicauth_from_netrc_present_untrusted_env(  # type: ignore[misc]
 ) -> None:
     """Test no authorization header is sent via netrc if trust_env is False"""
     req = make_client_request("get", URL("http://example.com"), trust_env=False)
-    assert hdrs.AUTHORIZATION not in req.headers
+    assert aiohttp.hdrs.AUTHORIZATION not in req.headers
 
 
 @pytest.mark.parametrize(
@@ -1792,7 +1792,7 @@ async def test_basicauth_from_empty_netrc(  # type: ignore[misc]
 ) -> None:
     """Test that no Authorization header is sent when netrc is empty"""
     req = make_client_request("get", URL("http://example.com"), trust_env=True)
-    assert hdrs.AUTHORIZATION not in req.headers
+    assert aiohttp.hdrs.AUTHORIZATION not in req.headers
 
 
 async def test_connection_key_with_proxy(
@@ -1819,7 +1819,7 @@ async def test_connection_key_without_proxy(
     req = make_client_request(
         "GET",
         URL("http://example.com"),
-        proxy_headers=CIMultiDict({"X-Proxy": "true"}),
+        proxy_headers=aiohttp.CIMultiDict({"X-Proxy": "true"}),
         loop=asyncio.get_running_loop(),
     )
     assert req.connection_key.proxy_headers_hash is None
@@ -1828,20 +1828,25 @@ async def test_connection_key_without_proxy(
 
 def test_request_info_back_compat() -> None:
     """Test RequestInfo can be created without real_url."""
-    url = URL("http://example.com")
-    other_url = URL("http://example.org")
+    url = aiohttp.URL("http://example.com")
+    other_url = aiohttp.URL("http://example.org")
     assert (
         aiohttp.RequestInfo(
-            url=url, method="GET", headers=CIMultiDictProxy(CIMultiDict())
+            url=url,
+            method="GET",
+            headers=aiohttp.CIMultiDictProxy(aiohttp.CIMultiDict()),
         ).real_url
         is url
     )
     assert (
-        aiohttp.RequestInfo(url, "GET", CIMultiDictProxy(CIMultiDict())).real_url is url
+        aiohttp.RequestInfo(
+            url, "GET", aiohttp.CIMultiDictProxy(aiohttp.CIMultiDict())
+        ).real_url
+        is url
     )
     assert (
         aiohttp.RequestInfo(
-            url, "GET", CIMultiDictProxy(CIMultiDict()), real_url=url
+            url, "GET", aiohttp.CIMultiDictProxy(aiohttp.CIMultiDict()), real_url=url
         ).real_url
         is url
     )
@@ -1855,10 +1860,11 @@ def test_request_info_back_compat() -> None:
 
 def test_request_info_tuple_new() -> None:
     """Test RequestInfo must be created with real_url using tuple.__new__."""
-    url = URL("http://example.com")
+    url = aiohttp.URL("http://example.com")
     with pytest.raises(IndexError):
         tuple.__new__(
-            aiohttp.RequestInfo, (url, "GET", CIMultiDictProxy(CIMultiDict()))
+            aiohttp.RequestInfo,
+            (url, "GET", aiohttp.CIMultiDictProxy(aiohttp.CIMultiDict())),
         ).real_url
 
     assert (
@@ -1871,7 +1877,7 @@ def test_request_info_tuple_new() -> None:
 
 async def test_get_content_length(make_client_request: _RequestMaker) -> None:
     """Test _get_content_length method extracts Content-Length correctly."""
-    req = make_client_request("get", URL("http://python.org/"))
+    req = make_client_request("get", aiohttp.URL("http://python.org/"))
 
     # No Content-Length header
     assert req._get_content_length() is None
@@ -1895,11 +1901,11 @@ async def test_write_bytes_with_content_length_limit(
     """Test that write_bytes respects content_length limit for different body types."""
     # Test with bytes data
     data = b"Hello World"
-    req = make_client_request("post", URL("http://python.org/"), loop=loop)
+    req = make_client_request("post", aiohttp.URL("http://python.org/"), loop=loop)
 
     await req.update_body(data)
 
-    writer = StreamWriter(protocol=conn.protocol, loop=loop)
+    writer = aiohttp.StreamWriter(protocol=conn.protocol, loop=loop)
     # Use content_length=5 to truncate data
     await req._write_bytes(writer, conn, 5)
 
@@ -1924,12 +1930,12 @@ async def test_write_bytes_with_iterable_content_length_limit(  # type: ignore[m
 ) -> None:
     """Test that write_bytes respects content_length limit for iterable data."""
     # Test with iterable data
-    req = make_client_request("post", URL("http://python.org/"), loop=loop)
+    req = make_client_request("post", aiohttp.URL("http://python.org/"), loop=loop)
 
     # Convert list to async generator if needed
     if isinstance(data, list):
 
-        async def gen() -> AsyncIterator[bytes]:
+        async def gen() -> aiohttp.AsyncIterator[bytes]:
             for chunk in data:
                 yield chunk
 
@@ -1937,7 +1943,7 @@ async def test_write_bytes_with_iterable_content_length_limit(  # type: ignore[m
     else:
         await req.update_body(data)
 
-    writer = StreamWriter(protocol=conn.protocol, loop=loop)
+    writer = aiohttp.StreamWriter(protocol=conn.protocol, loop=loop)
     # Use content_length=7 to truncate at the middle of Part2
     await req._write_bytes(writer, conn, 7)
     assert len(buf) == 7
@@ -1974,10 +1980,10 @@ async def test_update_body_closes_previous_payload(
     make_client_request: _RequestMaker,
 ) -> None:
     """Test that update_body properly closes the previous payload."""
-    req = make_client_request("POST", URL("http://python.org/"))
+    req = make_client_request("POST", aiohttp.URL("http://python.org/"))
 
     # Create a mock payload that tracks if it was closed
-    mock_payload = mock.Mock(spec=payload.Payload)
+    mock_payload = mock.Mock(spec=aiohttp.payload.Payload)
     mock_payload.close = mock.AsyncMock()
 
     # Set initial payload
@@ -1990,7 +1996,7 @@ async def test_update_body_closes_previous_payload(
     mock_payload.close.assert_called_once()
 
     # Verify new body is set (it's a BytesPayload now)
-    assert isinstance(req.body, payload.BytesPayload)
+    assert isinstance(req.body, aiohttp.payload.BytesPayload)
 
     await req._close()
 
@@ -1999,11 +2005,11 @@ async def test_update_body_with_different_types(
     make_client_request: _RequestMaker,
 ) -> None:
     """Test update_body with various data types."""
-    req = make_client_request("POST", URL("http://python.org/"))
+    req = make_client_request("POST", aiohttp.URL("http://python.org/"))
 
     # Test with bytes
     await req.update_body(b"bytes data")
-    assert isinstance(req.body, payload.BytesPayload)
+    assert isinstance(req.body, aiohttp.payload.BytesPayload)
 
     # Test with string
     await req.update_body("string data")
@@ -2021,7 +2027,7 @@ async def test_update_body_with_chunked_encoding(
 ) -> None:
     """Test that update_body properly handles chunked transfer encoding."""
     # Create request with chunked=True
-    req = make_client_request("POST", URL("http://python.org/"), chunked=True)
+    req = make_client_request("POST", aiohttp.URL("http://python.org/"), chunked=True)
 
     # Verify Transfer-Encoding header is set
     assert req.headers["Transfer-Encoding"] == "chunked"
@@ -2051,7 +2057,7 @@ async def test_update_body_get_method_with_none_body(
 ) -> None:
     """Test that update_body with GET method and None body doesn't call update_transfer_encoding."""
     # Create GET request
-    req = make_client_request("GET", URL("http://python.org/"))
+    req = make_client_request("GET", aiohttp.URL("http://python.org/"))
 
     # GET requests shouldn't have Transfer-Encoding or Content-Length initially
     assert "Transfer-Encoding" not in req.headers
@@ -2072,7 +2078,7 @@ async def test_update_body_updates_content_length(
     make_client_request: _RequestMaker,
 ) -> None:
     """Test that update_body properly updates Content-Length header when body size changes."""
-    req = make_client_request("POST", URL("http://python.org/"))
+    req = make_client_request("POST", aiohttp.URL("http://python.org/"))
 
     # Set initial body with known size
     await req.update_body(b"initial data")
@@ -2256,13 +2262,13 @@ async def test_update_body_none_sets_content_length_zero(  # type: ignore[misc]
     """Test that updating body to None sets Content-Length: 0 for POST-like methods."""
     # Create request with initial body
     req = make_client_request(
-        method, URL("http://python.org/"), data=b"initial", loop=loop
+        method, aiohttp.URL("http://python.org/"), data=b"initial", loop=loop
     )
-    assert req.headers[hdrs.CONTENT_LENGTH] == "7"
+    assert req.headers[aiohttp.hdrs.CONTENT_LENGTH] == "7"
 
     # Update body to None
     await req.update_body(None)
-    assert req.headers[hdrs.CONTENT_LENGTH] == "0"
+    assert req.headers[aiohttp.hdrs.CONTENT_LENGTH] == "0"
     await req._close()
 
 
@@ -2275,13 +2281,13 @@ async def test_update_body_none_no_content_length_for_get_methods(  # type: igno
     """Test that updating body to None doesn't set Content-Length for GET-like methods."""
     # Create request with initial body
     req = make_client_request(
-        method, URL("http://python.org/"), data=b"initial", loop=loop
+        method, aiohttp.URL("http://python.org/"), data=b"initial", loop=loop
     )
-    assert req.headers[hdrs.CONTENT_LENGTH] == "7"
+    assert req.headers[aiohttp.hdrs.CONTENT_LENGTH] == "7"
 
     # Update body to None
     await req.update_body(None)
-    assert hdrs.CONTENT_LENGTH not in req.headers
+    assert aiohttp.hdrs.CONTENT_LENGTH not in req.headers
     await req._close()
 
 
@@ -2289,12 +2295,12 @@ async def test_multiple_requests_share_empty_body_safely(
     make_client_request: _RequestMaker,
 ) -> None:
     """Test that multiple ClientRequest objects safely share the empty body payload."""
-    requests: list[ClientRequest] = []
+    requests: list[aiohttp.ClientRequest] = []
     for i in range(5):
-        req = make_client_request("GET", URL(f"http://example.com/path{i}"))
+        req = make_client_request("GET", aiohttp.URL(f"http://example.com/path{i}"))
         requests.append(req)
 
-    empty_body = ClientRequest._EMPTY_BODY
+    empty_body = aiohttp.ClientRequest._EMPTY_BODY
     for i, req in enumerate(requests):
         assert req.body is empty_body, f"Request {i} has different empty body"
         assert req.body.size == 0
@@ -2308,20 +2314,20 @@ async def test_empty_body_isolation_after_update(
     make_client_request: _RequestMaker,
 ) -> None:
     """Test that updating one request's body doesn't affect other requests."""
-    req1 = make_client_request("POST", URL("http://example.com/1"))
-    req2 = make_client_request("POST", URL("http://example.com/2"))
+    req1 = make_client_request("POST", aiohttp.URL("http://example.com/1"))
+    req2 = make_client_request("POST", aiohttp.URL("http://example.com/2"))
 
-    assert req1.body is ClientRequest._EMPTY_BODY
-    assert req2.body is ClientRequest._EMPTY_BODY
+    assert req1.body is aiohttp.ClientRequest._EMPTY_BODY
+    assert req2.body is aiohttp.ClientRequest._EMPTY_BODY
 
     await req1.update_body(b"new data")
 
-    assert req1.body is not ClientRequest._EMPTY_BODY
+    assert req1.body is not aiohttp.ClientRequest._EMPTY_BODY
     assert req1.body.size == 8
 
-    assert req2.body is ClientRequest._EMPTY_BODY
+    assert req2.body is aiohttp.ClientRequest._EMPTY_BODY
     assert req2.body.size == 0
     assert req2.body.consumed is False
 
-    assert ClientRequest._EMPTY_BODY.consumed is False
-    assert ClientRequest._EMPTY_BODY.size == 0
+    assert aiohttp.ClientRequest._EMPTY_BODY.consumed is False
+    assert aiohttp.ClientRequest._EMPTY_BODY.size == 0

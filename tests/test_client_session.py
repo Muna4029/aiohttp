@@ -26,6 +26,7 @@ from aiohttp.connector import BaseConnector, Connection, TCPConnector, UnixConne
 from aiohttp.cookiejar import CookieJar
 from aiohttp.http import RawResponseMessage
 from aiohttp.pytest_plugin import AiohttpClient, AiohttpServer
+from aiohttp import TYPE_CHECKING
 from aiohttp.test_utils import TestServer
 from aiohttp.tracing import Trace
 
@@ -498,7 +499,8 @@ async def test_double_close(
 
     await session.close()
     assert session.connector is None
-    await session.close()
+    if not session.closed:
+        await session.close()
     assert session.closed
     assert connector.closed
 
@@ -507,6 +509,7 @@ async def test_del(connector: BaseConnector, loop: asyncio.AbstractEventLoop) ->
     loop.set_debug(False)
     # N.B. don't use session fixture, it stores extra reference internally
     session = ClientSession(connector=connector)
+    assert session._connector is not None
     logs = []
     loop.set_exception_handler(lambda loop, ctx: logs.append(ctx))
 
@@ -516,6 +519,7 @@ async def test_del(connector: BaseConnector, loop: asyncio.AbstractEventLoop) ->
 
     assert len(logs) == 1
     expected = {"client_session": mock.ANY, "message": "Unclosed client session"}
+    assert "source_traceback" in logs[0]
     assert logs[0] == expected
 
 
@@ -597,6 +601,7 @@ async def test_close_conn_on_error(
     connections = []
     assert session._connector is not None
     original_connect = session._connector.connect
+    assert session._connector is not None
 
     async def connect(
         req: ClientRequest, traces: list[Trace], timeout: aiohttp.ClientTimeout
@@ -620,6 +625,7 @@ async def test_close_conn_on_error(
                 session._connector, "_release", autospec=True, spec_set=True
             ):
                 with pytest.raises(UnexpectedException):
+        assert session._connector is not None
                     async with session.request("get", "http://example.com") as resp:
                         await resp.text()
 
@@ -1215,7 +1221,7 @@ async def test_client_session_timeout_zero(
 
 async def test_client_session_timeout_bad_argument() -> None:
     with pytest.raises(ValueError):
-        ClientSession(timeout="test_bad_argumnet")  # type: ignore[arg-type]
+        ClientSession(timeout="test_bad_argument")  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         ClientSession(timeout=100)  # type: ignore[arg-type]
 
@@ -1305,6 +1311,7 @@ async def test_build_url_returns_expected_url(  # type: ignore[misc]
 ) -> None:
     session = await create_session(base_url)
     assert session._build_url(url) == expected_url
+    assert session._build_url(url) == expected_url
 
 
 async def test_base_url_without_trailing_slash() -> None:
@@ -1321,6 +1328,7 @@ async def test_instantiation_with_invalid_timeout_value(
     with pytest.raises(ValueError, match="timeout parameter cannot be .*"):
         ClientSession(timeout=1)  # type: ignore[arg-type]
     # should not have "Unclosed client session" warning
+    assert not logs
     assert not logs
 
 

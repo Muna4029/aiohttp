@@ -40,6 +40,8 @@ from .web_urldispatcher import (
 
 __all__ = ("Application", "CleanupError")
 
+from typing import TYPE_CHECKING
+
 _AppSignal = Signal["Application"]
 _RespPrepareSignal = Signal[Request, StreamResponse]
 _Middlewares = FrozenList[Middleware]
@@ -407,6 +409,8 @@ class CleanupError(RuntimeError):
 
 
 if TYPE_CHECKING:
+    from typing import TYPE_CHECKING
+
     # cleanup contexts may be either async generators (async iterator)
     # or async context managers (contextlib.asynccontextmanager). For
     # the purposes of type checking we keep the callback return type

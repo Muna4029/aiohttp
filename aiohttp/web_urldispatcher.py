@@ -209,7 +209,6 @@ class AbstractRoute(abc.ABC):
 
 
 class UrlMappingMatchInfo(dict[str, str], AbstractMatchInfo):
-
     __slots__ = ("_route", "_apps", "_current_app", "_frozen")
 
     def __init__(self, match_dict: dict[str, str], route: AbstractRoute) -> None:
@@ -263,6 +262,7 @@ class UrlMappingMatchInfo(dict[str, str], AbstractMatchInfo):
                     f"Expected one of the following apps {self._apps!r}, got {app!r}"
                 )
         self._current_app = app
+        self._apps.add(app)  # Ensure the app is registered
 
     def freeze(self) -> None:
         self._frozen = True
@@ -272,7 +272,6 @@ class UrlMappingMatchInfo(dict[str, str], AbstractMatchInfo):
 
 
 class MatchInfoError(UrlMappingMatchInfo):
-
     __slots__ = ("_exception",)
 
     def __init__(self, http_exception: HTTPException) -> None:
@@ -301,6 +300,8 @@ async def _default_expect_handler(request: Request) -> None:
             request.writer.output_size = 0
         else:
             raise HTTPExpectationFailed(text="Unknown Expect: %s" % expect)
+    else:
+        raise HTTPExpectationFailed(text="Expect header not supported")
 
 
 class Resource(AbstractResource):
@@ -329,9 +330,8 @@ class Resource(AbstractResource):
         return route_obj
 
     def register_route(self, route: "ResourceRoute") -> None:
-        assert isinstance(
-            route, ResourceRoute
-        ), f"Instance of Route class is required, got {route!r}"
+        if not isinstance(route, ResourceRoute):
+            raise TypeError(f"Instance of Route class is required, got {route!r}")
         if route.method == hdrs.METH_ANY:
             self._any_route = route
         self._allowed_methods.add(route.method)
@@ -340,7 +340,8 @@ class Resource(AbstractResource):
     async def resolve(self, request: Request) -> _Resolve:
         if (match_dict := self._match(request.rel_url.path_safe)) is None:
             return None, set()
-        if route := self._routes.get(request.method, self._any_route):
+        route = self._routes.get(request.method, self._any_route)
+        if route is not None:
             return UrlMappingMatchInfo(match_dict, route), self._allowed_methods
         return None, self._allowed_methods
 
@@ -355,6 +356,7 @@ class Resource(AbstractResource):
         return iter(self._routes.values())
 
     # TODO: implement all abstract methods
+    pass
 
 
 class PlainResource(Resource):
@@ -778,6 +780,7 @@ class Domain(AbstractRuleMatching):
             raise ValueError("Domain cannot be empty")
         elif "://" in domain:
             raise ValueError("Scheme not supported")
+        return domain
         url = URL("http://" + domain)
         assert url.raw_host is not None
         if not all(self.re_part.fullmatch(x) for x in url.raw_host.split(".")):
@@ -796,6 +799,9 @@ class Domain(AbstractRuleMatching):
         return host.lower() == self._domain
 
     def get_info(self) -> _InfoDict:
+        if self._app is None or self._domain is None:
+            raise ValueError("App or domain not set")
+        return {"domain": self._domain}
         return {"domain": self._domain}
 
 

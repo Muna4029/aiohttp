@@ -271,6 +271,7 @@ def test_del_with_closed_loop(  # type: ignore[misc]
     assert not conns_impl
     assert not transp.close.called
     assert exc_handler.called
+    assert conn._acquired == set()
 
 
 async def test_del_empty_connector(loop: asyncio.AbstractEventLoop) -> None:
@@ -282,6 +283,7 @@ async def test_del_empty_connector(loop: asyncio.AbstractEventLoop) -> None:
     del conn
 
     assert not exc_handler.called
+    assert conn._acquired == set()
 
 
 async def test_create_conn() -> None:
@@ -289,6 +291,7 @@ async def test_create_conn() -> None:
     with pytest.raises(NotImplementedError):
         await conn._create_connection(object(), [], object())  # type: ignore[arg-type]
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test_async_context_manager(loop: asyncio.AbstractEventLoop) -> None:
@@ -311,6 +314,7 @@ async def test_close(key: ConnectionKey) -> None:
     assert not conn._conns
     assert proto.close.called
     assert conn.closed
+    assert conn._acquired == set()
 
 
 async def test_close_with_proto_closed_none(key: ConnectionKey) -> None:
@@ -335,6 +339,7 @@ async def test_close_with_proto_closed_none(key: ConnectionKey) -> None:
     assert proto1.close.called
     assert proto2.close.called
     assert conn.closed
+    assert conn._acquired == set()
 
 
 async def test_get(loop: asyncio.AbstractEventLoop, key: ConnectionKey) -> None:
@@ -350,6 +355,7 @@ async def test_get(loop: asyncio.AbstractEventLoop, key: ConnectionKey) -> None:
         connection.close()
     finally:
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_get_unconnected_proto(loop: asyncio.AbstractEventLoop) -> None:
@@ -371,6 +377,7 @@ async def test_get_unconnected_proto(loop: asyncio.AbstractEventLoop) -> None:
         assert await conn._get(key, []) is None
     finally:
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_get_unconnected_proto_ssl(loop: asyncio.AbstractEventLoop) -> None:
@@ -406,6 +413,7 @@ async def test_get_expired(loop: asyncio.AbstractEventLoop) -> None:
         assert not conn._conns
     finally:
         await conn.close()
+        assert conn._acquired == set()
 
 
 @pytest.mark.usefixtures("enable_cleanup_closed")
@@ -423,6 +431,7 @@ async def test_get_expired_ssl(loop: asyncio.AbstractEventLoop) -> None:
         assert conn._cleanup_closed_transports == [transport]
     finally:
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_release_acquired(key: ConnectionKey) -> None:
@@ -441,6 +450,7 @@ async def test_release_acquired(key: ConnectionKey) -> None:
         assert 0 == len(conn._acquired_per_host)
 
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_release_acquired_closed(key: ConnectionKey) -> None:
@@ -455,6 +465,7 @@ async def test_release_acquired_closed(key: ConnectionKey) -> None:
         assert 1 == len(conn._acquired_per_host[key])
         assert not m.called
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_release(loop: asyncio.AbstractEventLoop, key: ConnectionKey) -> None:
@@ -488,6 +499,7 @@ async def test_release_ssl_transport(  # type: ignore[misc]
         conn._release(ssl_key, proto, should_close=True)
         assert conn._cleanup_closed_transports == [transport]
         await conn.close()
+        assert conn._acquired == set()
 
 
 async def test_release_already_closed(key: ConnectionKey) -> None:
@@ -623,6 +635,7 @@ async def test__release_acquired_per_host1(
     conn = aiohttp.BaseConnector(limit_per_host=10)
     conn._release_acquired(key, create_mocked_conn(loop))
     assert len(conn._acquired_per_host) == 0
+    assert conn._acquired == set()
 
     await conn.close()
 
@@ -633,6 +646,7 @@ async def test__release_acquired_per_host2(
     conn = aiohttp.BaseConnector(limit_per_host=10)
     handler = create_mocked_conn(loop)
     conn._acquired_per_host[key].add(handler)
+    assert conn._acquired == set()
     conn._release_acquired(key, handler)
     assert len(conn._acquired_per_host) == 0
 
@@ -645,6 +659,7 @@ async def test__release_acquired_per_host3(
     conn = aiohttp.BaseConnector(limit_per_host=10)
     handler = create_mocked_conn(loop)
     handler2 = create_mocked_conn(loop)
+    assert conn._acquired == set()
     conn._acquired_per_host[key].add(handler)
     conn._acquired_per_host[key].add(handler2)
     conn._release_acquired(key, handler)
@@ -1314,7 +1329,7 @@ async def test_tcp_connector_dns_cache_not_expired(
         await conn._resolve_host("localhost", 8080)
         await conn._resolve_host("localhost", 8080)
         m_resolver().resolve.assert_called_once_with("localhost", 8080, family=0)
-
+        assert conn._acquired == set()
         await conn.close()
 
 
@@ -1362,7 +1377,7 @@ async def test_tcp_connector_dns_throttle_requests(
         t2 = loop.create_task(conn._resolve_host("localhost", 8080))
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-        m_resolver().resolve.assert_called_once_with("localhost", 8080, family=0)
+        assert conn._acquired == set()        m_resolver().resolve.assert_called_once_with("localhost", 8080, family=0)
         t.cancel()
         t2.cancel()
         with pytest.raises(asyncio.CancelledError):
@@ -1383,7 +1398,7 @@ async def test_tcp_connector_dns_throttle_requests_exception_spread(
         r2 = loop.create_task(conn._resolve_host("localhost", 8080))
         await asyncio.sleep(0)
         await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        assert conn._acquired == set()        await asyncio.sleep(0)
         await asyncio.sleep(0)
         assert r1.exception() == e
         assert r2.exception() == e
@@ -2668,6 +2683,7 @@ async def test_tcp_connector_clear_dns_cache(loop: asyncio.AbstractEventLoop) ->
         conn._cached_hosts.next_addrs(("localhost", 124))
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test_tcp_connector_clear_dns_cache_bad_args(
@@ -2678,6 +2694,7 @@ async def test_tcp_connector_clear_dns_cache_bad_args(
         conn.clear_dns_cache("localhost")
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context1() -> None:
@@ -2687,6 +2704,7 @@ async def test___get_ssl_context1() -> None:
     assert conn._get_ssl_context(req) is None
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context2() -> None:
@@ -2698,6 +2716,7 @@ async def test___get_ssl_context2() -> None:
     assert conn._get_ssl_context(req) is ctx
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context3() -> None:
@@ -2709,6 +2728,7 @@ async def test___get_ssl_context3() -> None:
     assert conn._get_ssl_context(req) is ctx
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context4() -> None:
@@ -2720,6 +2740,7 @@ async def test___get_ssl_context4() -> None:
     assert conn._get_ssl_context(req) is _SSL_CONTEXT_UNVERIFIED
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context5() -> None:
@@ -2731,6 +2752,7 @@ async def test___get_ssl_context5() -> None:
     assert conn._get_ssl_context(req) is _SSL_CONTEXT_UNVERIFIED
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test___get_ssl_context6() -> None:
@@ -2741,6 +2763,7 @@ async def test___get_ssl_context6() -> None:
     assert conn._get_ssl_context(req) is _SSL_CONTEXT_VERIFIED
 
     await conn.close()
+    assert conn._acquired == set()
 
 
 async def test_ssl_context_once() -> None:
@@ -2754,6 +2777,7 @@ async def test_ssl_context_once() -> None:
     req.ssl = True
     assert conn1._get_ssl_context(req) is _SSL_CONTEXT_VERIFIED
     assert conn2._get_ssl_context(req) is _SSL_CONTEXT_VERIFIED
+    assert conn1._acquired == set()
     assert conn3._get_ssl_context(req) is _SSL_CONTEXT_VERIFIED
 
 

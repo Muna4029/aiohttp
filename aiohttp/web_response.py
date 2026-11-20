@@ -10,6 +10,9 @@ from concurrent.futures import Executor
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
+if TYPE_CHECKING:
+    from .http import SERVER_SOFTWARE, HttpVersion10, HttpVersion11
+
 from multidict import CIMultiDict, istr
 
 from . import hdrs, payload
@@ -62,7 +65,6 @@ CONTENT_CODINGS = {coding.value: coding for coding in ContentCoding}
 
 
 class StreamResponse(MutableMapping[str, Any], HeadersMixin, CookieMixin):
-
     _body: None | bytes | bytearray | Payload
     _length_check = True
     _body = None
@@ -436,9 +438,9 @@ class StreamResponse(MutableMapping[str, Any], HeadersMixin, CookieMixin):
     async def write(
         self, data: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
     ) -> None:
-        assert isinstance(
-            data, (bytes, bytearray, memoryview)
-        ), "data argument must be byte-ish (%r)" % type(data)
+        assert isinstance(data, (bytes, bytearray, memoryview)), (
+            "data argument must be byte-ish (%r)" % type(data)
+        )
 
         if self._eof_sent:
             raise RuntimeError("Cannot call write() after write_eof()")
@@ -458,9 +460,9 @@ class StreamResponse(MutableMapping[str, Any], HeadersMixin, CookieMixin):
         await self._payload_writer.drain()
 
     async def write_eof(self, data: bytes = b"") -> None:
-        assert isinstance(
-            data, (bytes, bytearray, memoryview)
-        ), "data argument must be byte-ish (%r)" % type(data)
+        assert isinstance(data, (bytes, bytearray, memoryview)), (
+            "data argument must be byte-ish (%r)" % type(data)
+        )
 
         if self._eof_sent:
             return
@@ -509,7 +511,6 @@ class StreamResponse(MutableMapping[str, Any], HeadersMixin, CookieMixin):
 
 
 class Response(StreamResponse):
-
     _compressed_body: bytes | None = None
     _send_headers_immediately = False
 

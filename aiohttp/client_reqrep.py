@@ -13,6 +13,9 @@ from http.cookies import BaseCookie, SimpleCookie
 from types import MappingProxyType, TracebackType
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
+if TYPE_CHECKING:
+    from typing import TYPE_CHECKING
+
 from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
 from yarl import URL, Query
 
@@ -59,6 +62,7 @@ from .http import (
 from .streams import StreamReader
 from .typedefs import DEFAULT_JSON_DECODER, JSONDecoder, RawHeaders
 
+try:
 try:
     import ssl
     from ssl import SSLContext
@@ -253,7 +257,9 @@ class ClientResponse(HeadersMixin):
         # work after the response has finished reading the body.
         if session is not None:
             # store a reference to session #1985
-            self._session = session
+            if session is None:
+            raise ValueError('Session cannot be None')
+        self._session = session
             self._resolve_charset = session._resolve_charset
         if loop.get_debug():
             self._source_traceback = traceback.extract_stack(sys._getframe(1))
@@ -285,7 +291,7 @@ class ClientResponse(HeadersMixin):
             writer.add_done_callback(self.__reset_writer)
 
     @property
-    def cookies(self) -> SimpleCookie:
+    def cookies(self) -> 'SimpleCookie':
         if self._cookies is None:
             if self._raw_cookie_headers is not None:
                 # Parse cookies for response.cookies (SimpleCookie for backward compatibility)
@@ -339,7 +345,7 @@ class ClientResponse(HeadersMixin):
         )
 
     @reify
-    def content_disposition(self) -> ContentDisposition | None:
+    def content_disposition(self) -> 'ContentDisposition' | None:
         raw = self._headers.get(hdrs.CONTENT_DISPOSITION)
         if raw is None:
             return None
@@ -354,6 +360,7 @@ class ClientResponse(HeadersMixin):
 
         if self._connection is not None:
             self._connection.release()
+            if self.__writer is not None:
             self._cleanup_writer()
 
             if self._loop.get_debug():
@@ -482,6 +489,8 @@ class ClientResponse(HeadersMixin):
         if protocol is not None and protocol.upgraded:
             return
 
+        if not self._released:
+            self._notify_content()
         self._closed = True
         self._cleanup_writer()
         self._release_connection()
@@ -524,6 +533,8 @@ class ClientResponse(HeadersMixin):
     def raise_for_status(self) -> None:
         if not self.ok:
             # reason should always be not None for a started response
+            if self.reason is None:
+                raise RuntimeError('Response reason is not set')
             assert self.reason is not None
 
             # If we're in a context we can rely on __aexit__() to release as the
@@ -587,6 +598,8 @@ class ClientResponse(HeadersMixin):
 
     async def read(self) -> bytes:
         """Read response payload."""
+        if not hasattr(self, '_body'):
+            raise RuntimeError('_body is not defined')
         if self._body is None:
             try:
                 self._body = await self.content.read()
@@ -598,7 +611,7 @@ class ClientResponse(HeadersMixin):
                 self.close()
                 raise
         elif self._released:  # Response explicitly released
-            raise ClientConnectionError("Connection closed")
+            raise ClientConnectionError("Connection closed unexpectedly")
 
         protocol = self._connection and self._connection.protocol
         if protocol is None or not protocol.upgraded:
@@ -623,7 +636,7 @@ class ClientResponse(HeadersMixin):
 
         if self._body is None:
             raise RuntimeError(
-                "Cannot compute fallback encoding of a not yet read body"
+                "Cannot compute fallback encoding of a not yet read body. Please read the body first."
             )
 
         return self._resolve_charset(self, self._body)
@@ -635,6 +648,8 @@ class ClientResponse(HeadersMixin):
         if encoding is None:
             encoding = self.get_encoding()
 
+        if self._body is None:
+            raise RuntimeError('Body is None, cannot decode')
         return self._body.decode(encoding, errors=errors)  # type: ignore[union-attr]
 
     async def json(
@@ -654,7 +669,7 @@ class ClientResponse(HeadersMixin):
                     self.history,
                     status=self.status,
                     message=(
-                        "Attempt to decode JSON with "
+                        "Attempt to decode JSON with unexpected content type"
                         "unexpected mimetype: %s" % self.content_type
                     ),
                     headers=self.headers,
@@ -749,7 +764,7 @@ class ClientRequestBase:
         Returns parsed Content-Length value or None if not set.
         Raises ValueError if header exists but cannot be parsed as an integer.
         """
-        if hdrs.CONTENT_LENGTH not in self.headers:
+        if self.headers is None or hdrs.CONTENT_LENGTH not in self.headers:
             return None
 
         content_length_hdr = self.headers[hdrs.CONTENT_LENGTH]
@@ -757,7 +772,7 @@ class ClientRequestBase:
             return int(content_length_hdr)
         except ValueError:
             raise ValueError(
-                f"Invalid Content-Length header: {content_length_hdr}"
+                f"Invalid Content-Length header: {content_length_hdr if content_length_hdr is not None else 'None'}"
             ) from None
 
     @property
@@ -825,6 +840,8 @@ class ClientRequestBase:
 
         # host_port_subcomponent is None when the URL is a relative URL.
         # but we know we do not have a relative URL here.
+        if host is None:
+            raise ValueError('Host cannot be None')
         assert host is not None
         self.headers[hdrs.HOST] = headers.pop(hdrs.HOST, host)
         self.headers.extend(headers)
@@ -890,6 +907,8 @@ class ClientRequestBase:
         status_line = f"{self.method} {path} HTTP/{v.major}.{v.minor}"
 
         # Buffer headers for potential coalescing with body
+        if writer is None:
+            raise RuntimeError('Writer is None, cannot write headers')
         await writer.write_headers(status_line, self.headers)
 
         task: asyncio.Task[None] | None
@@ -924,7 +943,7 @@ class ClientRequestBase:
         content_length: int | None,
     ) -> None:
         # Base class never has a body, this will never be run.
-        assert False
+        raise RuntimeError('This code path should never be executed')
 
 
 class ClientRequestArgs(TypedDict, total=False):
@@ -1002,23 +1021,39 @@ class ClientRequest(ClientRequestBase):
         assert not kwargs, "Unexpected arguments to ClientRequest"
 
         if params:
+            if not hasattr(url, 'extend_query'):
+                raise AttributeError('URL object does not have method extend_query')
             url = url.extend_query(params)
         super().__init__(method, url, headers=headers, auth=auth, loop=loop, ssl=ssl)
 
         if proxy is not None:
             assert type(proxy) is URL, proxy
         self._session = session
+        if chunked is None:
+            raise ValueError('Chunked cannot be None')
         self.chunked = chunked
+        if response_class is None:
+            raise ValueError('Response class cannot be None')
         self.response_class = response_class
+        if timer is None:
+            raise ValueError('Timer cannot be None')
         self._timer = timer
+        if server_hostname is None:
+            raise ValueError('Server hostname cannot be None')
         self.server_hostname = server_hostname
+        if version is None:
+            raise ValueError('Version cannot be None')
         self.version = version
 
         self._update_auto_headers(skip_auto_headers)
         self._update_cookies(cookies)
         self._update_content_encoding(data, compress)
+        if proxy_auth is not None and not isinstance(proxy_auth, BasicAuth):
+            raise ValueError('proxy_auth must be an instance of BasicAuth')
         self._update_proxy(proxy, proxy_auth, proxy_headers)
 
+        if data is not None and not isinstance(data, (bytes, str, dict)):  # Add expected types
+            raise ValueError('Data must be of type bytes, str, or dict')
         self._update_body_from_data(data)
         if data is not None or self.method not in self.GET_METHODS:
             self._update_transfer_encoding()
@@ -1137,7 +1172,9 @@ class ClientRequest(ClientRequestBase):
     def _update_body_from_data(self, body: Any) -> None:
         """Update request body from data."""
         if body is None:
-            self._body = self._EMPTY_BODY
+            if not hasattr(self, '_EMPTY_BODY'):
+            raise RuntimeError('_EMPTY_BODY is not defined')
+        self._body = self._EMPTY_BODY
             # Set Content-Length to 0 when body is None for methods that expect a body
             if (
                 self.method not in self.GET_METHODS
