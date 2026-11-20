@@ -173,6 +173,7 @@ class RequestHandler(BaseProtocol):
         "_logging_enabled",
         "_cache",
     )
+    # Note: Ensure that no overlapping slot names are defined.
 
     def __init__(
         self,
@@ -699,10 +700,12 @@ class RequestHandler(BaseProtocol):
         except AttributeError:
             if resp is None:
                 self.log_exception("Missing return statement on request handler")
+                raise  # Ensure we raise an exception if resp is None
             else:
                 self.log_exception(
-                    "Web-handler should return a response instance, "
-                    "got {!r}".format(resp)
+                    "Web-handler should return a response instance, " "got {!r}".format(
+                        resp
+                    )
                 )
             exc = HTTPInternalServerError()
             resp = Response(
