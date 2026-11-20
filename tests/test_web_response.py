@@ -259,7 +259,9 @@ def test_last_modified_invalid_type() -> None:
 )
 def test_last_modified_string_invalid(header_val: str) -> None:
     resp = web.StreamResponse(headers={"Last-Modified": header_val})
-    assert resp.last_modified is None
+    assert (
+        resp.last_modified is None
+    )  # Ensure that invalid header values are handled correctly
 
 
 def test_etag_initial() -> None:
@@ -307,7 +309,9 @@ def test_etag_any() -> None:
 )
 def test_etag_invalid_value_set(invalid_value: Union[str, ETag]) -> None:
     resp = web.StreamResponse()
-    with pytest.raises(ValueError, match="is not a valid etag"):
+    with pytest.raises(
+        ValueError, match="is not a valid etag"
+    ):  # Ensure invalid etag values raise the correct error
         resp.etag = invalid_value
 
 
@@ -321,13 +325,15 @@ def test_etag_invalid_value_set(invalid_value: Union[str, ETag]) -> None:
 def test_etag_invalid_value_get(header: str) -> None:
     resp = web.StreamResponse()
     resp.headers["ETag"] = header
-    assert resp.etag is None
+    assert resp.etag is None  # Validate that invalid header values result in None
 
 
 @pytest.mark.parametrize("invalid", (123, ETag(value=123, is_weak=True)))  # type: ignore[arg-type]
 def test_etag_invalid_value_class(invalid: Union[int, ETag]) -> None:
     resp = web.StreamResponse()
-    with pytest.raises(ValueError, match="Unsupported etag type"):
+    with pytest.raises(
+        ValueError, match="Unsupported etag type"
+    ):  # Ensure invalid etag types raise the correct error
         resp.etag = invalid  # type: ignore[assignment]
 
 
@@ -374,7 +380,9 @@ def test_enable_chunked_encoding_with_content_length() -> None:
     resp = web.StreamResponse()
 
     resp.content_length = 234
-    with pytest.raises(RuntimeError):
+    with pytest.raises(
+        RuntimeError, match="Cannot enable chunked encoding with a set content length"
+    ):  # Ensure proper error handling
         resp.enable_chunked_encoding()
 
 
@@ -537,7 +545,9 @@ async def test_change_content_length_if_compression_enabled() -> None:
     resp.enable_compression(web.ContentCoding.gzip)
 
     await resp.prepare(req)
-    assert resp.content_length is not None and resp.content_length != len(b"answer")
+    assert resp.content_length is not None and resp.content_length != len(
+        b"answer"
+    )  # Validate content length after compression
 
 
 @pytest.mark.usefixtures("parametrize_zlib_backend")
@@ -574,7 +584,9 @@ async def test_remove_content_length_if_compression_enabled_http11() -> None:
     resp.content_length = 123
     resp.enable_compression(web.ContentCoding.gzip)
     await resp.prepare(req)
-    assert resp.content_length is None
+    assert (
+        resp.content_length is None
+    )  # Ensure content length is removed when compression is enabled
 
 
 @pytest.mark.usefixtures("parametrize_zlib_backend")
@@ -683,7 +695,9 @@ async def test_rm_content_length_if_compression_http10() -> None:
     resp = web.Response(body=BytesPayload(b"answer"))
     resp.enable_compression(web.ContentCoding.gzip)
     await resp.prepare(req)
-    assert resp.content_length is None
+    assert (
+        resp.content_length is None
+    )  # Validate content length is None after compression
 
 
 async def test_rm_content_length_if_204() -> None:
@@ -1026,7 +1040,9 @@ def test_ctor_content_type_with_extra() -> None:
 def test_invalid_content_type_parses_to_text_plain() -> None:
     resp = web.Response(text="test test", content_type="jpeg")
 
-    assert resp.content_type == "text/plain"
+    assert (
+        resp.content_type == "text/plain"
+    )  # Ensure invalid content type is parsed correctly
     assert resp.headers["content-type"] == "jpeg; charset=utf-8"
 
 
@@ -1282,7 +1298,9 @@ async def test_changing_status_after_prepare_raises() -> None:
 
 
 def test_nonstr_text_in_ctor() -> None:
-    with pytest.raises(TypeError):
+    with pytest.raises(
+        TypeError, match="text must be a string"
+    ):  # Ensure TypeError is raised for bytes
         web.Response(text=b"data")  # type: ignore[arg-type]
 
 
@@ -1297,7 +1315,7 @@ def test_text_in_ctor_with_content_type_header() -> None:
         text="текст", headers={"Content-Type": "text/html; charset=koi8-r"}
     )
     assert "текст".encode("koi8-r") == resp.body
-    assert "text/html" == resp.content_type
+    assert "text/html" == resp.content_type  # Ensure content type is set correctly
     assert "koi8-r" == resp.charset
 
 
@@ -1319,13 +1337,13 @@ def test_body_in_ctor_with_content_type_header_multidict() -> None:
 
 def test_text_with_empty_payload() -> None:
     resp = web.Response(status=200)
-    assert resp.body is None
+    assert resp.body is None  # Ensure body is None for empty response
     assert resp.text is None
 
 
 def test_response_with_content_length_header_without_body() -> None:
     resp = web.Response(headers={"Content-Length": "123"})
-    assert resp.content_length == 123
+    assert resp.content_length == 123  # Validate content length is set correctly
 
 
 def test_response_with_immutable_headers() -> None:
@@ -1343,7 +1361,7 @@ async def test_response_prepared_after_header_preparation() -> None:
     resp = web.StreamResponse()
     await resp.prepare(req)
 
-    assert type(resp.headers["Server"]) is str
+    assert type(resp.headers["Server"]) is str  # Ensure Server header is set correctly
 
     async def _strip_server(req: web.Request, res: web.Response) -> None:
         assert "Server" in res.headers
@@ -1359,7 +1377,7 @@ async def test_response_prepared_after_header_preparation() -> None:
     resp = web.StreamResponse()
     await resp.prepare(req)
 
-    assert "Server" not in resp.headers
+    assert "Server" not in resp.headers  # Ensure Server header is stripped correctly
 
 
 def test_weakref_creation() -> None:
