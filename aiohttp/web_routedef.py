@@ -46,6 +46,7 @@ _HandlerType = Union[type[AbstractView], Handler]
 
 @attr.s(auto_attribs=True, frozen=True, repr=False, slots=True)
 class RouteDef(AbstractRouteDef):
+    __slots__ = ("method", "path", "handler", "kwargs")
     method: str
     path: str
     handler: _HandlerType
@@ -71,6 +72,7 @@ class RouteDef(AbstractRouteDef):
 
 @attr.s(auto_attribs=True, frozen=True, repr=False, slots=True)
 class StaticDef(AbstractRouteDef):
+    __slots__ = ("prefix", "path", "kwargs")
     prefix: str
     path: PathLike
     kwargs: dict[str, Any]

@@ -26,7 +26,7 @@ from .http import (
     StreamWriter,
 )
 from .http_exceptions import BadHttpMethod
-from .log import access_logger, server_logger
+from .log import server_logger
 from .streams import EMPTY_PAYLOAD, StreamReader
 from .tcp_helpers import tcp_keepalive
 from .web_exceptions import HTTPException, HTTPInternalServerError
@@ -162,6 +162,54 @@ class RequestHandler(BaseProtocol):
         "_logging_enabled",
         "_cache",
     )
+    _request_count = 0
+    _keepalive = False
+    _current_request: BaseRequest | None = None
+    _manager: Server | None = manager
+    _request_handler: _RequestHandler | None = manager.request_handler
+    _request_factory: _RequestFactory | None = manager.request_factory
+    _tcp_keepalive = tcp_keepalive
+    _next_keepalive_close_time = 0.0
+    _keepalive_handle: asyncio.Handle | None = None
+    _keepalive_timeout = keepalive_timeout
+    _lingering_time = float(lingering_time)
+    _messages: deque[_MsgType] = deque()
+    _message_tail = b""
+    _waiter: asyncio.Future[None] | None = None
+    _handler_waiter: asyncio.Future[None] | None = None
+    _task_handler: asyncio.Task[None] | None = None
+    _upgrade = False
+    _payload_parser: Any = None
+    _request_parser: HttpRequestParser | None = HttpRequestParser(
+        self,
+        loop,
+        read_bufsize,
+        max_line_size=max_line_size,
+        max_field_size=max_field_size,
+        max_headers=max_headers,
+        payload_exception=RequestPayloadError,
+        auto_decompress=auto_decompress,
+    )
+    _timeout_ceil_threshold: float = 5
+    try:
+        _timeout_ceil_threshold = float(timeout_ceil_threshold)
+    except (TypeError, ValueError):
+        pass
+    logger = logger
+    debug = debug
+    access_log = access_log
+    if access_log:
+        access_logger: AbstractAccessLogger | None = access_log_class(
+            access_log, access_log_format
+        )
+        _logging_enabled = access_logger.enabled
+    else:
+        access_logger = None
+        _logging_enabled = False
+    _close = False
+    _force_close = False
+    _request_in_progress = False
+    _cache: dict[str, Any] = {}
 
     def __init__(
         self,
@@ -253,22 +301,22 @@ class RequestHandler(BaseProtocol):
     @under_cached_property
     def ssl_context(self) -> Optional["ssl.SSLContext"]:
         """Return SSLContext if available."""
-        return (
-            None
-            if self.transport is None
-            else self.transport.get_extra_info("sslcontext")
+        ssl_context = (
+            self.transport.get_extra_info("sslcontext") if self.transport else None
         )
+        if ssl_context is not None and not isinstance(ssl_context, ssl.SSLContext):
+            return None
+        return ssl_context
 
     @under_cached_property
     def peername(
         self,
     ) -> str | tuple[str, int, int, int] | tuple[str, int] | None:
         """Return peername if available."""
-        return (
-            None
-            if self.transport is None
-            else self.transport.get_extra_info("peername")
-        )
+        peername = self.transport.get_extra_info("peername") if self.transport else None
+        if peername is not None and not isinstance(peername, (str, tuple)):
+            return None
+        return peername
 
     @property
     def keepalive_timeout(self) -> float:
@@ -421,6 +469,8 @@ class RequestHandler(BaseProtocol):
 
         # feed payload
         elif data:
+            if self._payload_parser is None:
+                raise TypeError("_payload_parser must be initialized")
             eof, tail = self._payload_parser.feed_data(data)
             if eof:
                 self.close()
