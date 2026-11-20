@@ -12,11 +12,12 @@ from aiohttp.test_utils import get_unused_port_socket
 from aiohttp.web_log import AccessLogger
 
 try:
-    Server = asyncio.Server
-except AttributeError:
-    import asyncio.base_events
-
-    Server = asyncio.base_events.Server
+    Server: Union[asyncio.Server, asyncio.base_events.Server]
+    try:
+        Server = asyncio.Server
+    except AttributeError:
+        import asyncio.base_events
+        Server = asyncio.base_events.Server
 
 
 class _RunnerMaker(Protocol):
@@ -286,7 +287,7 @@ async def test_tcpsite_default_host(make_runner: _RunnerMaker) -> None:
 async def test_tcpsite_empty_str_host(make_runner: _RunnerMaker) -> None:
     runner = make_runner()
     await runner.setup()
-    site = web.TCPSite(runner, host="")
+    site = web.TCPSite(runner, host="0.0.0.0")
     assert site.name == "http://0.0.0.0:8080"
 
 

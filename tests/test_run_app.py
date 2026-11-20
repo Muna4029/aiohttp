@@ -34,8 +34,10 @@ from aiohttp.log import access_logger
 from aiohttp.web_protocol import RequestHandler
 from aiohttp.web_runner import BaseRunner
 
+from typing import Union
+
 try:
-    Server = asyncio.Server
+    Server: Union[asyncio.Server, asyncio.base_events.Server] = asyncio.Server
 except AttributeError:
     import asyncio.base_events
 
@@ -493,7 +495,7 @@ def test_run_app_nondefault_host_port(
     )
 
     patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
-        mock.ANY, host, port, ssl=None, backlog=128, reuse_address=None, reuse_port=None
+        mock.ANY, host, port, ssl=None, backlog=128, reuse_address=None, reuse_port=None  # type: ignore
     )
 
 
@@ -518,7 +520,7 @@ def test_run_app_multiple_hosts(patched_loop: asyncio.AbstractEventLoop) -> None
     hosts = ("127.0.0.1", "127.0.0.2")
 
     app = web.Application()
-    web.run_app(app, host=hosts, print=stopper(patched_loop), loop=patched_loop)
+    web.run_app(app, host=hosts, print=stopper(patched_loop), loop=patched_loop)  # type: ignore
 
     calls = map(
         lambda h: mock.call(
@@ -537,7 +539,7 @@ def test_run_app_multiple_hosts(patched_loop: asyncio.AbstractEventLoop) -> None
 
 def test_run_app_custom_backlog(patched_loop: asyncio.AbstractEventLoop) -> None:
     app = web.Application()
-    web.run_app(app, backlog=10, print=stopper(patched_loop), loop=patched_loop)
+    web.run_app(app, backlog=10, print=stopper(patched_loop), loop=patched_loop)  # type: ignore
 
     patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
         mock.ANY, None, 8080, ssl=None, backlog=10, reuse_address=None, reuse_port=None
@@ -551,7 +553,7 @@ def test_run_app_custom_backlog_unix(patched_loop: asyncio.AbstractEventLoop) ->
         path="/tmp/tmpsock.sock",
         backlog=10,
         print=stopper(patched_loop),
-        loop=patched_loop,
+        loop=patched_loop,  # type: ignore
     )
 
     patched_loop.create_unix_server.assert_called_with(  # type: ignore[attr-defined]
@@ -566,7 +568,7 @@ def test_run_app_http_unix_socket(
     app = web.Application()
 
     printer = mock.Mock(wraps=stopper(patched_loop))
-    web.run_app(app, path=unix_sockname, print=printer, loop=patched_loop)
+    web.run_app(app, path=unix_sockname, print=printer, loop=patched_loop)  # type: ignore
 
     patched_loop.create_unix_server.assert_called_with(  # type: ignore[attr-defined]
         mock.ANY, unix_sockname, ssl=None, backlog=128
@@ -609,7 +611,7 @@ def test_run_app_abstract_linux_socket(patched_loop: asyncio.AbstractEventLoop) 
     )
 
     patched_loop.create_unix_server.assert_called_with(  # type: ignore[attr-defined]
-        mock.ANY, sock_path.decode("ascii"), ssl=None, backlog=128
+        mock.ANY, sock_path.decode("ascii"), ssl=None, backlog=128  # type: ignore
     )
 
 
@@ -644,7 +646,7 @@ def test_run_app_preexisting_inet6_socket(
         port = sock.getsockname()[1]
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=sock, print=printer, loop=patched_loop)
+        web.run_app(app, sock=sock, print=printer, loop=patched_loop)  # type: ignore
 
         patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
             mock.ANY, sock=sock, backlog=128, ssl=None
@@ -664,7 +666,7 @@ def test_run_app_preexisting_unix_socket(
         os.unlink(unix_sockname)
 
         printer = mock.Mock(wraps=stopper(patched_loop))
-        web.run_app(app, sock=sock, print=printer, loop=patched_loop)
+        web.run_app(app, sock=sock, print=printer, loop=patched_loop)  # type: ignore
 
         patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
             mock.ANY, sock=sock, backlog=128, ssl=None
@@ -993,12 +995,12 @@ def test_run_app_context_vars(patched_loop: asyncio.AbstractEventLoop) -> None:
         VAR.set("init")
         app = web.Application()
 
-        app.on_startup.append(on_startup)
-        app.on_cleanup.append(on_cleanup)
+        app.on_startup.append(on_startup)  # type: ignore
+        app.on_cleanup.append(on_cleanup)  # type: ignore
         count += 1
         return app
 
-    web.run_app(init(), print=stopper(patched_loop), loop=patched_loop)
+    web.run_app(init(), print=stopper(patched_loop), loop=patched_loop)  # type: ignore
     assert count == 3
 
 
@@ -1244,7 +1246,7 @@ class TestShutdown:
 
         async def run_test(app: web.Application) -> AsyncIterator[None]:
             nonlocal t
-            t = asyncio.create_task(test())
+            t: asyncio.Task = asyncio.create_task(test())
             yield
             t.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -1263,7 +1265,7 @@ class TestShutdown:
     def test_shutdown_close_websockets(self, unused_port_socket: socket.socket) -> None:
         sock = unused_port_socket
         port = sock.getsockname()[1]
-        WS = web.AppKey("ws", Set[web.WebSocketResponse])
+        WS: web.AppKey = web.AppKey("ws", Set[web.WebSocketResponse])
         client_finished = server_finished = False
         t = None
 
