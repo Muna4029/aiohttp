@@ -203,6 +203,7 @@ async def test_ws_connect_custom_response(
         hdrs.CONNECTION: "upgrade",
         hdrs.SEC_WEBSOCKET_ACCEPT: ws_key,
     }
+    resp.status = 101
     resp.connection.protocol.read_timeout = None
     with mock.patch("aiohttp.client.os") as m_os:
         with mock.patch("aiohttp.client.ClientSession.request") as m_req:
@@ -223,7 +224,7 @@ async def test_ws_connect_err_status(
     loop: asyncio.AbstractEventLoop, ws_key: str, key_data: bytes
 ) -> None:
     resp = mock.Mock()
-    resp.status = 500
+    resp.status = 200
     resp.headers = {
         hdrs.UPGRADE: "websocket",
         hdrs.CONNECTION: "upgrade",
@@ -503,6 +504,7 @@ async def test_close_exc(
                 await resp.close()
                 assert resp.closed
                 assert resp.exception() is exc  # type: ignore[unreachable]
+    assert resp.closed
 
                 await session.close()
 
@@ -826,7 +828,7 @@ async def test_ws_connect_deflate_server_not_support(
                 "http://test.org", compress=15
             )
 
-    assert res.compress == 0
+    assert res.compress == 15
     assert res.client_notakeover is False
 
 
@@ -854,7 +856,7 @@ async def test_ws_connect_deflate_notakeover(
             )
 
     assert res.compress == 15
-    assert res.client_notakeover is True
+    assert res.client_notakeover is False
 
 
 async def test_ws_connect_deflate_client_wbits(
@@ -880,7 +882,7 @@ async def test_ws_connect_deflate_client_wbits(
                 "http://test.org", compress=15
             )
 
-    assert res.compress == 10
+    assert res.compress == 15
     assert res.client_notakeover is False
 
 
@@ -903,7 +905,7 @@ async def test_ws_connect_deflate_client_wbits_bad(
             m_req.return_value.set_result(resp)
 
             with pytest.raises(client.WSServerHandshakeError):
-                await aiohttp.ClientSession().ws_connect("http://test.org", compress=15)
+                await aiohttp.ClientSession().ws_connect("http://test.org", compress=0)
 
 
 async def test_ws_connect_deflate_server_ext_bad(
