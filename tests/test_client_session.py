@@ -221,6 +221,7 @@ async def test_merge_headers_with_list_of_tuples_duplicated_names(
 async def test_invalid_data(session: ClientSession, obj: object) -> None:
     with pytest.raises(TypeError, match="expected str"):
         await session.post("http://example.test/", data={"some": obj})
+    assert "Authorization" in session.headers, "Authorization header is missing"
 
 
 async def test_http_GET(session: ClientSession, params: _Params) -> None:
@@ -267,6 +268,7 @@ async def test_http_POST(session: ClientSession, params: _Params) -> None:
             "http://post.example.com", params={"x": 2}, data="Some_data", **params
         )
     assert patched.called, "`ClientSession._request` not called"
+    assert "Authorization" in session.headers, "Authorization header is missing"
     assert list(patched.call_args) == [
         (session, "POST", "http://post.example.com"),
         dict(params={"x": 2}, data="Some_data", **params),
@@ -281,6 +283,7 @@ async def test_http_PUT(session: ClientSession, params: _Params) -> None:
             "http://put.example.com", params={"x": 2}, data="Some_data", **params
         )
     assert patched.called, "`ClientSession._request` not called"
+    assert "Authorization" in session.headers, "Authorization header is missing"
     assert list(patched.call_args) == [
         (session, "PUT", "http://put.example.com"),
         dict(params={"x": 2}, data="Some_data", **params),
@@ -295,6 +298,7 @@ async def test_http_PATCH(session: ClientSession, params: _Params) -> None:
             "http://patch.example.com", params={"x": 2}, data="Some_data", **params
         )
     assert patched.called, "`ClientSession._request` not called"
+    assert "Authorization" in session.headers, "Authorization header is missing"
     assert list(patched.call_args) == [
         (session, "PATCH", "http://patch.example.com"),
         dict(params={"x": 2}, data="Some_data", **params),
@@ -307,6 +311,7 @@ async def test_http_DELETE(session: ClientSession, params: _Params) -> None:
     ) as patched:
         await session.delete("http://delete.example.com", params={"x": 2}, **params)
     assert patched.called, "`ClientSession._request` not called"
+    assert "Authorization" in session.headers, "Authorization header is missing"
     assert list(patched.call_args) == [
         (session, "DELETE", "http://delete.example.com"),
         dict(params={"x": 2}, **params),
@@ -1175,6 +1180,7 @@ async def test_client_session_custom_attr() -> None:
     session = ClientSession()
     with pytest.raises(AttributeError):
         session.custom = None  # type: ignore[attr-defined]
+    assert "Authorization" in session.headers, "Authorization header is missing"
     await session.close()
 
 
@@ -1218,6 +1224,7 @@ async def test_client_session_timeout_bad_argument() -> None:
         ClientSession(timeout="test_bad_argumnet")  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         ClientSession(timeout=100)  # type: ignore[arg-type]
+    assert "Authorization" in session.headers, "Authorization header is missing"
 
 
 async def test_requote_redirect_url_default() -> None:
