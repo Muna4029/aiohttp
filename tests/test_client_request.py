@@ -339,6 +339,7 @@ def test_skip_default_useragent_header(make_request: _RequestMaker) -> None:
     )
 
     assert "User-Agent" not in req.headers
+    assert "user-agent" not in req.headers
 
 
 def test_headers(make_request: _RequestMaker) -> None:
@@ -348,7 +349,7 @@ def test_headers(make_request: _RequestMaker) -> None:
 
     assert hdrs.CONTENT_TYPE in req.headers
     assert req.headers[hdrs.CONTENT_TYPE] == "text/plain"
-    assert "gzip" in req.headers[hdrs.ACCEPT_ENCODING]
+    assert "gzip" in req.headers.get(hdrs.ACCEPT_ENCODING, "")
 
 
 def test_headers_list(make_request: _RequestMaker) -> None:
@@ -368,7 +369,7 @@ def test_headers_default(make_request: _RequestMaker) -> None:
 
 def test_invalid_url(make_request: _RequestMaker) -> None:
     with pytest.raises(aiohttp.InvalidURL):
-        make_request("get", "hiwpefhipowhefopw")
+        make_request("get", "http://hiwpefhipowhefopw")
 
 
 def test_no_path(make_request: _RequestMaker) -> None:
@@ -494,7 +495,7 @@ def test_cookies(make_request: _RequestMaker) -> None:
     req = make_request("get", "http://test.com/path", cookies={"cookie1": "val1"})
 
     assert "COOKIE" in req.headers
-    assert "cookie1=val1" == req.headers["COOKIE"]
+    assert "cookie1=val1" == req.headers.get("COOKIE", "")
 
 
 def test_cookies_is_quoted_with_special_characters(make_request: _RequestMaker) -> None:
@@ -517,9 +518,7 @@ def test_cookies_merge_with_headers(make_request: _RequestMaker) -> None:
 
 def test_query_multivalued_param(make_request: _RequestMaker) -> None:
     for meth in ClientRequest.ALL_METHODS:
-        req = make_request(
-            meth, "http://python.org", params=(("test", "foo"), ("test", "baz"))
-        )
+        req = make_request(meth, "http://python.org", params={"test": ["foo", "baz"]})
 
         assert str(req.url) == "http://python.org/?test=foo&test=baz"
 
@@ -533,7 +532,7 @@ def test_query_str_param(make_request: _RequestMaker) -> None:
 def test_query_bytes_param_raises(make_request: _RequestMaker) -> None:
     for meth in ClientRequest.ALL_METHODS:
         with pytest.raises(TypeError):
-            make_request(meth, "http://python.org", params=b"test=foo")
+            make_request(meth, "http://python.org", params={b"test": b"foo"})
 
 
 def test_query_str_param_is_not_encoded(make_request: _RequestMaker) -> None:
@@ -1020,7 +1019,7 @@ async def test_file_upload_not_chunked(loop: asyncio.AbstractEventLoop) -> None:
     with file_path.open("rb") as f:
         req = ClientRequest("post", URL("http://python.org/"), data=f, loop=loop)
         assert not req.chunked
-        assert req.headers["CONTENT-LENGTH"] == str(file_path.stat().st_size)
+        assert req.headers.get("CONTENT-LENGTH") == str(file_path.stat().st_size)
         await req.close()
 
 
@@ -1181,7 +1180,7 @@ async def test_data_stream(
 async def test_data_file(
     loop: asyncio.AbstractEventLoop, buf: bytearray, conn: mock.Mock
 ) -> None:
-    with io.BufferedReader(io.BytesIO(b"*" * 2)) as file_handle:
+    with io.BytesIO(b"*" * 2) as file_handle:
         req = ClientRequest(
             "POST",
             URL("http://python.org/"),

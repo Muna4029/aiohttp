@@ -5,7 +5,8 @@ import socket
 import sys
 import warnings
 from argparse import ArgumentParser
-from collections.abc import Awaitable, Callable, Iterable, Iterable as TypingIterable
+from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Iterable as TypingIterable
 from contextlib import suppress
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, cast
@@ -265,7 +266,7 @@ else:
         SSLContext = object  # type: ignore[misc,assignment]
 
 # Only display warning when using -Wdefault, -We, -X dev or similar.
-warnings.filterwarnings("ignore", category=NotAppKeyWarning, append=True)
+warnings.filterwarnings("default", category=NotAppKeyWarning, append=True)
 
 HostSequence = TypingIterable[str]
 
@@ -285,8 +286,8 @@ async def _run_app(
     **kwargs: Any,  # TODO(PY311): Use Unpack
 ) -> None:
     # An internal function to actually do all dirty job for application running
-    if asyncio.iscoroutine(app):
-        app = await app
+    if not asyncio.iscoroutine(app):
+        app = await asyncio.ensure_future(app)
 
     app = cast(Application, app)
 
@@ -323,7 +324,7 @@ async def _run_app(
                             reuse_port=reuse_port,
                         )
                     )
-        elif path is None and sock is None or port is not None:
+        elif (path is None and sock is None) or port is not None:
             sites.append(
                 TCPSite(
                     runner,
@@ -336,7 +337,7 @@ async def _run_app(
             )
 
         if path is not None:
-            if isinstance(path, (str, os.PathLike)):
+            if isinstance(path, (str, os.PathLike)) or isinstance(path, Iterable):
                 sites.append(
                     UnixSite(
                         runner,
@@ -357,7 +358,7 @@ async def _run_app(
                     )
 
         if sock is not None:
-            if not isinstance(sock, Iterable):
+            if isinstance(sock, socket.socket):
                 sites.append(
                     SockSite(
                         runner,
@@ -382,13 +383,14 @@ async def _run_app(
         if print:  # pragma: no branch
             names = sorted(str(s.name) for s in runner.sites)
             print(
-                "======== Running on {} ========\n"
-                "(Press CTRL+C to quit)".format(", ".join(names))
+                "======== Running on {} ========\n" "(Press CTRL+C to quit)".format(
+                    ", ".join(names)
+                )
             )
 
         # sleep forever by 1 hour intervals,
         while True:
-            await asyncio.sleep(3600)
+            await asyncio.sleep(3600)  # Sleep for 1 hour intervals
     finally:
         await runner.cleanup()
 
@@ -530,11 +532,11 @@ def main(argv: list[str]) -> None:
     if not func_str or not mod_str:
         arg_parser.error("'entry-func' not in 'module:function' syntax")
     if mod_str.startswith("."):
-        arg_parser.error("relative module names not supported")
+        raise ValueError("relative module names not supported")
     try:
         module = import_module(mod_str)
     except ImportError as ex:
-        arg_parser.error(f"unable to import {mod_str}: {ex}")
+        raise ImportError(f"unable to import {mod_str}: {ex}")
     try:
         func = getattr(module, func_str)
     except AttributeError:
@@ -542,7 +544,7 @@ def main(argv: list[str]) -> None:
 
     # Compatibility logic
     if args.path is not None and not hasattr(socket, "AF_UNIX"):
-        arg_parser.error(
+        raise EnvironmentError(
             "file system paths not supported by your operating environment"
         )
 
