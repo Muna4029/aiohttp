@@ -147,6 +147,8 @@ include = [
 test-command = ""
 # don't build PyPy wheels, install from source instead
 skip = "pp*"
+# Updated to support PyO3's minimum supported version
+# Ensure the PyPy version is compatible with PyO3
 
 [tool.codespell]
 skip = '.git,*.pdf,*.svg,Makefile,CONTRIBUTORS.txt,venvs,_build'

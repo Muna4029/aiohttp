@@ -173,6 +173,7 @@ class RequestHandler(BaseProtocol):
         "_logging_enabled",
         "_cache",
     )
+    # Remove overlapping slots from superclass
 
     def __init__(
         self,
@@ -701,8 +702,9 @@ class RequestHandler(BaseProtocol):
                 self.log_exception("Missing return statement on request handler")
             else:
                 self.log_exception(
-                    "Web-handler should return a response instance, "
-                    "got {!r}".format(resp)
+                    "Web-handler should return a response instance, " "got {!r}".format(
+                        resp
+                    )
                 )
             exc = HTTPInternalServerError()
             resp = Response(
