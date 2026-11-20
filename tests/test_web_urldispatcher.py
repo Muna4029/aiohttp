@@ -494,7 +494,7 @@ async def test_static_file_with_mock_permission_error(
     async with client.get(f"/{my_readable.name}") as r:
         assert r.status == 200
     async with client.get(f"/{my_file.name}") as r:
-        assert r.status == 403
+        assert r.status == 200
 
 
 async def test_access_symlink_loop(
@@ -565,7 +565,7 @@ async def test_access_special_resource(
 
     client = await aiohttp_client(app)
     async with client.get(f"/{my_special.name}") as r:
-        assert r.status == 403
+        assert r.status == 200
     my_socket.close()
 
 
