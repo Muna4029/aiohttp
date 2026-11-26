@@ -56,7 +56,6 @@ def get_failed_tests(report_path: str, name: str) -> list[dict[str, Any]]:
 @pytest.mark.xfail
 def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
     try:
-        print("Starting autobahn-testsuite server")
         autobahn_container = docker.run(
             detach=True,
             image="autobahn-testsuite",
@@ -68,7 +67,6 @@ def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
                 (f"{report_dir}", "/reports"),
             ],
         )
-        print("Running aiohttp test client")
         client = subprocess.Popen(
             ["wait-for-it", "-s", "localhost:9001", "--"]
             + [sys.executable]
@@ -76,11 +74,19 @@ def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
         )
         client.wait()
     finally:
-        print("Stopping client and server")
-        client.terminate()
-        client.wait()
-        # https://github.com/gabrieldemarmiesse/python-on-whales/pull/580
-        autobahn_container.stop()  # type: ignore[union-attr]
+        # Stop client and server if they were started
+        if "client" in locals() and client is not None:
+            try:
+                client.terminate()
+            except Exception:
+                pass
+            try:
+                client.wait(timeout=5)
+            except Exception:
+                pass
+        if "autobahn_container" in locals() and autobahn_container is not None:
+            # https://github.com/gabrieldemarmiesse/python-on-whales/pull/580
+            autobahn_container.stop()
 
     failed_messages = get_failed_tests(f"{report_dir}/clients", "aiohttp")
 
@@ -97,11 +103,9 @@ def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
 @pytest.mark.xfail
 def test_server(report_dir: Path, request: pytest.FixtureRequest) -> None:
     try:
-        print("Starting aiohttp test server")
         server = subprocess.Popen(
             [sys.executable] + ["tests/autobahn/server/server.py"]
         )
-        print("Starting autobahn-testsuite client")
         docker.run(
             image="autobahn-testsuite",
             name="autobahn",
@@ -124,9 +128,16 @@ def test_server(report_dir: Path, request: pytest.FixtureRequest) -> None:
             ],
         )
     finally:
-        print("Stopping client and server")
-        server.terminate()
-        server.wait()
+        # Stop client and server if they were started
+        if "server" in locals() and server is not None:
+            try:
+                server.terminate()
+            except Exception:
+                pass
+            try:
+                server.wait(timeout=5)
+            except Exception:
+                pass
 
     failed_messages = get_failed_tests(f"{report_dir}/servers", "AutobahnServer")
 

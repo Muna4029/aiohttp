@@ -332,8 +332,8 @@ async def test_keepalive_timeout_sync_sleep(unused_port_socket: socket.socket) -
             resp1 = await sess.get(f"http://{host}:{port}/")
             await resp1.read()
             # wait for server keepalive_timeout
-            # time.sleep is a more challenging scenario than asyncio.sleep
-            time.sleep(0.01)
+            # use asyncio.sleep to avoid blocking the event loop
+            await asyncio.sleep(0.01)
             resp2 = await sess.get(f"http://{host}:{port}/")
             await resp2.read()
     finally:
@@ -594,9 +594,13 @@ async def test_post_data_zipfile_filelike(aiohttp_client: AiohttpClient) -> None
     client = await aiohttp_client(app)
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(file=buf, mode="w") as zf:
-        with zf.open("payload1.txt", mode="w") as zip_filelike_writing:
-            zip_filelike_writing.write(data)
+    # Perform blocking zipfile writes in a thread to avoid blocking the event loop
+    def _make_zip():
+        with zipfile.ZipFile(file=buf, mode="w") as zf:
+            with zf.open("payload1.txt", mode="w") as zip_filelike_writing:
+                zip_filelike_writing.write(data)
+
+    await asyncio.to_thread(_make_zip)
 
     buf.seek(0)
     zf = zipfile.ZipFile(file=buf, mode="r")
@@ -617,10 +621,14 @@ async def test_post_data_tarfile_filelike(aiohttp_client: AiohttpClient) -> None
     client = await aiohttp_client(app)
 
     buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w") as tf:
-        ti = tarfile.TarInfo(name="payload1.txt")
-        ti.size = len(data)
-        tf.addfile(tarinfo=ti, fileobj=io.BytesIO(data))
+    # Perform blocking tarfile writes in a thread to avoid blocking the event loop
+    def _make_tar():
+        with tarfile.open(fileobj=buf, mode="w") as tf:
+            ti = tarfile.TarInfo(name="payload1.txt")
+            ti.size = len(data)
+            tf.addfile(tarinfo=ti, fileobj=io.BytesIO(data))
+
+    await asyncio.to_thread(_make_tar)
 
     # Random-access tarfile.
     buf.seek(0)
@@ -1263,8 +1271,9 @@ async def test_connection_timeout_error(
     client = await aiohttp_client(app)
 
     # Mock the connector's connect method to raise asyncio.TimeoutError
+    connector = client._session.connector
     mock_connect = mocker.patch.object(
-        client.session._connector, "connect", side_effect=asyncio.TimeoutError()
+        connector, "connect", side_effect=asyncio.TimeoutError()
     )
 
     with pytest.raises(aiohttp.ConnectionTimeoutError) as exc_info:

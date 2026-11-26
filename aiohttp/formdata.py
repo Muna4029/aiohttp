@@ -36,8 +36,20 @@ class FormData:
 
         if isinstance(fields, dict):
             fields = list(fields.items())
-        elif not isinstance(fields, (list, tuple)):
-            fields = (fields,)
+        elif isinstance(fields, (list, tuple)):
+            # already a concrete sequence of fields
+            pass
+        else:
+            # If it's an iterable (but not a bytes/str-like or IOBase), expand it
+            # to a list of fields so callers can pass generators and other
+            # iterables of (name, value) pairs. Otherwise treat it as a single
+            # field value.
+            if hasattr(fields, "__iter__") and not isinstance(
+                fields, (str, bytes, bytearray, memoryview, io.IOBase)
+            ):
+                fields = list(fields)
+            else:
+                fields = [fields]
         self.add_fields(*fields)
 
     @property
@@ -88,8 +100,18 @@ class FormData:
             elif isinstance(rec, (MultiDictProxy, MultiDict)):
                 to_add.extend(rec.items())
 
-            elif isinstance(rec, (list, tuple)) and len(rec) == 2:
-                k, fp = rec
+            elif not isinstance(rec, (str, bytes, bytearray, memoryview, io.IOBase)) and hasattr(rec, "__iter__"):
+                # Accept any iterable of two items as a (name, file) pair,
+                # not only list/tuple. This allows generators and other
+                # iterables of pairs to be passed in.
+                try:
+                    k, fp = rec
+                except Exception:
+                    raise TypeError(
+                        "Only io.IOBase, multidict and (name, file) "
+                        "pairs allowed, use .add_field() for passing "
+                        f"more complex parameters, got {rec!r}"
+                    )
                 self.add_field(k, fp)
 
             else:
@@ -154,7 +176,7 @@ class FormData:
         self._fields.clear()
         return self._writer
 
-    def __call__(self) -> Payload:
+    def __call__(self) -> Payload | multipart.MultipartWriter:
         if self._is_multipart:
             return self._gen_form_data()
         else:
