@@ -22,7 +22,14 @@ IS_RELEASE_ON_RTD = (
     and os.environ["READTHEDOCS_VERSION_TYPE"] == "tag"
 )
 if IS_RELEASE_ON_RTD:
-    tags.add("is_release")
+    _tags = globals().get("tags")
+    if _tags is not None:
+        try:
+            _tags.add("is_release")
+        except Exception:
+            # if tags exists but doesn't support add or something else fails,
+            # don't break docs build at import time
+            pass
 
 _docs_path = os.path.dirname(__file__)
 _version_path = os.path.abspath(

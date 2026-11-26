@@ -4224,7 +4224,7 @@ async def test_connector_resolve_in_case_of_trace_cache_miss_exception(
         with pytest.raises(Exception):
             await connector._resolve_host("", 0, traces)
 
-        await connector._resolve_host("", 0, traces) == [token]
+        assert await connector._resolve_host("", 0, traces) == [token]
 
     await connector.close()
 
