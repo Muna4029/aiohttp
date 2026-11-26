@@ -332,7 +332,7 @@ def netrc_other_host(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 @pytest.fixture
 def start_connection() -> Iterator[mock.Mock]:
     with mock.patch(
-        "aiohttp.connector.aiohappyeyeballs.start_connection",
+        "aiohttp.connector._aio_happy_eyeballs.start_connection",
         autospec=True,
         spec_set=True,
         return_value=mock.create_autospec(socket.socket, spec_set=True, instance=True),

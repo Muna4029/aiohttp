@@ -1593,9 +1593,11 @@ class UnixConnector(BaseConnector):
                 _, proto = await self._loop.create_unix_connection(
                     self._factory, self._path
                 )
+        except asyncio.TimeoutError:
+            # Propagate timeouts raised by ceil_timeout
+            raise
         except OSError as exc:
-            if exc.errno is None and isinstance(exc, asyncio.TimeoutError):
-                raise
+            # Non-timeout OS errors are wrapped as UnixClientConnectorError
             raise UnixClientConnectorError(self.path, req.connection_key, exc) from exc
 
         return proto
@@ -1663,9 +1665,11 @@ class NamedPipeConnector(BaseConnector):
                 await asyncio.sleep(0)
                 # other option is to manually set transport like
                 # `proto.transport = trans`
+        except asyncio.TimeoutError:
+            # Propagate timeouts raised by ceil_timeout
+            raise
         except OSError as exc:
-            if exc.errno is None and isinstance(exc, asyncio.TimeoutError):
-                raise
+            # Non-timeout OS errors are wrapped as ClientConnectorError
             raise ClientConnectorError(req.connection_key, exc) from exc
 
         return cast(ResponseHandler, proto)

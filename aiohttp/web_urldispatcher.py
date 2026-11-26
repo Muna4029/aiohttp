@@ -215,8 +215,8 @@ class UrlMappingMatchInfo(dict[str, str], AbstractMatchInfo):
     def __init__(self, match_dict: dict[str, str], route: AbstractRoute) -> None:
         super().__init__(match_dict)
         self._route = route
-        self._apps: list[Application] = []
-        self._current_app: Application | None = None
+        self._apps: list["Application"] = []
+        self._current_app: "Application | None" = None
         self._frozen = False
 
     @property
