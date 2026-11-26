@@ -583,7 +583,7 @@ def test_run_app_abstract_linux_socket(patched_loop: asyncio.AbstractEventLoop) 
     app = web.Application()
     web.run_app(
         app,
-        path=sock_path.decode("ascii", "ignore"),
+        path=sock_path.decode("ascii"),
         print=stopper(patched_loop),
         loop=patched_loop,
     )
@@ -646,8 +646,8 @@ def test_run_app_preexisting_unix_socket(
         printer = mock.Mock(wraps=stopper(patched_loop))
         web.run_app(app, sock=sock, print=printer, loop=patched_loop)
 
-        patched_loop.create_server.assert_called_with(  # type: ignore[attr-defined]
-            mock.ANY, sock=sock, backlog=128, ssl=None
+        patched_loop.create_unix_server.assert_called_with(  # type: ignore[attr-defined]
+            mock.ANY, sock=sock, ssl=None, backlog=128
         )
         assert f"http://unix:{unix_sockname}:" in printer.call_args[0][0]
 

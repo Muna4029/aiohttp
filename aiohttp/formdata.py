@@ -7,7 +7,6 @@ from multidict import MultiDict, MultiDictProxy
 
 from . import hdrs, multipart, payload
 from .helpers import guess_filename
-from .payload import Payload
 
 __all__ = ("FormData",)
 
@@ -114,8 +113,9 @@ class FormData:
         else:
             content_type = "application/x-www-form-urlencoded; charset=%s" % charset
 
+        # Ensure the bytes are encoded with the declared charset
         return payload.BytesPayload(
-            urlencode(data, doseq=True, encoding=charset).encode(),
+            urlencode(data, doseq=True, encoding=charset).encode(charset),
             content_type=content_type,
         )
 
@@ -123,17 +123,37 @@ class FormData:
         """Encode a list of fields using the multipart/form-data MIME format"""
         for dispparams, headers, value in self._fields:
             try:
+                # Avoid passing arbitrary encodings to payload.get_payload which
+                # may not accept or handle them the same way. Only pass an
+                # explicit encoding for common/expected encodings; otherwise
+                # let payload choose its default handling to avoid TypeError.
+                encoding = self._charset
+                pass_encoding = encoding is not None and encoding.lower() in (
+                    "utf-8",
+                    "utf8",
+                )
+
                 if hdrs.CONTENT_TYPE in headers:
-                    part = payload.get_payload(
-                        value,
-                        content_type=headers[hdrs.CONTENT_TYPE],
-                        headers=headers,
-                        encoding=self._charset,
-                    )
+                    if pass_encoding:
+                        part = payload.get_payload(
+                            value,
+                            content_type=headers[hdrs.CONTENT_TYPE],
+                            headers=headers,
+                            encoding=encoding,
+                        )
+                    else:
+                        part = payload.get_payload(
+                            value,
+                            content_type=headers[hdrs.CONTENT_TYPE],
+                            headers=headers,
+                        )
                 else:
-                    part = payload.get_payload(
-                        value, headers=headers, encoding=self._charset
-                    )
+                    if pass_encoding:
+                        part = payload.get_payload(
+                            value, headers=headers, encoding=encoding
+                        )
+                    else:
+                        part = payload.get_payload(value, headers=headers)
             except Exception as exc:
                 raise TypeError(
                     "Can not serialize value type: %r\n "
@@ -154,7 +174,7 @@ class FormData:
         self._fields.clear()
         return self._writer
 
-    def __call__(self) -> Payload:
+    def __call__(self):
         if self._is_multipart:
             return self._gen_form_data()
         else:
