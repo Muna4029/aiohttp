@@ -5,7 +5,6 @@ from http.cookies import (
     CookieError,
     Morsel,
     SimpleCookie,
-    _unquote as simplecookie_unquote,
 )
 
 import pytest
@@ -25,9 +24,9 @@ def test_known_attrs_is_superset_of_morsel_reserved() -> None:
     morsel_reserved = {attr.lower() for attr in Morsel._reserved}  # type: ignore[attr-defined]
 
     # _COOKIE_KNOWN_ATTRS should be a superset of morsel_reserved
-    assert (
-        helpers._COOKIE_KNOWN_ATTRS >= morsel_reserved
-    ), f"_COOKIE_KNOWN_ATTRS is missing: {morsel_reserved - helpers._COOKIE_KNOWN_ATTRS}"
+    assert helpers._COOKIE_KNOWN_ATTRS >= morsel_reserved, (
+        f"_COOKIE_KNOWN_ATTRS is missing: {morsel_reserved - helpers._COOKIE_KNOWN_ATTRS}"
+    )
 
 
 def test_bool_attrs_is_superset_of_morsel_flags() -> None:
@@ -36,15 +35,15 @@ def test_bool_attrs_is_superset_of_morsel_flags() -> None:
     morsel_flags = {attr.lower() for attr in Morsel._flags}  # type: ignore[attr-defined]
 
     # _COOKIE_BOOL_ATTRS should be a superset of morsel_flags
-    assert (
-        helpers._COOKIE_BOOL_ATTRS >= morsel_flags
-    ), f"_COOKIE_BOOL_ATTRS is missing: {morsel_flags - helpers._COOKIE_BOOL_ATTRS}"
+    assert helpers._COOKIE_BOOL_ATTRS >= morsel_flags, (
+        f"_COOKIE_BOOL_ATTRS is missing: {morsel_flags - helpers._COOKIE_BOOL_ATTRS}"
+    )
 
 
 def test_preserve_morsel_with_coded_value() -> None:
     """Test preserve_morsel_with_coded_value preserves coded_value exactly."""
     # Create a cookie with a coded_value different from value
-    cookie: Morsel[str] = Morsel()
+    cookie: Morsel = Morsel()
     cookie.set("test_cookie", "decoded value", "encoded%20value")
 
     # Preserve the coded_value
@@ -61,7 +60,7 @@ def test_preserve_morsel_with_coded_value() -> None:
 
 def test_preserve_morsel_with_coded_value_no_coded_value() -> None:
     """Test preserve_morsel_with_coded_value when coded_value is same as value."""
-    cookie: Morsel[str] = Morsel()
+    cookie: Morsel = Morsel()
     cookie.set("test_cookie", "simple_value", "simple_value")
 
     result = preserve_morsel_with_coded_value(cookie)
@@ -138,7 +137,7 @@ def test_parse_set_cookie_headers_special_chars_in_names() -> None:
     for i, (name, morsel) in enumerate(result):
         assert name == expected_names[i]
         assert morsel.key == expected_names[i]
-        assert morsel.value == f"value{i+1}"
+        assert morsel.value == f"value{i + 1}"
 
 
 def test_parse_set_cookie_headers_invalid_names() -> None:
@@ -512,11 +511,11 @@ def test_parse_set_cookie_headers_partitioned() -> None:
 
     # All cookies should have partitioned=True
     for i, (name, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is True
-        ), f"Cookie {i+1} should have partitioned=True"
-        assert name == f"cookie{i+1}"
-        assert morsel.value == f"value{i+1}"
+        assert morsel.get("partitioned") is True, (
+            f"Cookie {i + 1} should have partitioned=True"
+        )
+        assert name == f"cookie{i + 1}"
+        assert morsel.value == f"value{i + 1}"
 
     # Cookie 4 should also have secure and httponly
     assert result[3][1].get("secure") is True
@@ -546,9 +545,9 @@ def test_parse_set_cookie_headers_partitioned_case_insensitive() -> None:
 
     # All should be recognized as partitioned
     for i, (_, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is True
-        ), f"Cookie {i+1} should have partitioned=True"
+        assert morsel.get("partitioned") is True, (
+            f"Cookie {i + 1} should have partitioned=True"
+        )
 
 
 def test_parse_set_cookie_headers_partitioned_not_set() -> None:
@@ -583,9 +582,9 @@ def test_parse_set_cookie_headers_partitioned_not_set_if_no_support() -> None:
 
     assert len(result) == 3
     for i, (_, morsel) in enumerate(result):
-        assert (
-            morsel.get("partitioned") is None
-        ), f"Cookie {i+1} should not have partitioned flag"
+        assert morsel.get("partitioned") is None, (
+            f"Cookie {i + 1} should not have partitioned flag"
+        )
 
 
 def test_parse_set_cookie_headers_partitioned_with_other_attrs_manual() -> None:
