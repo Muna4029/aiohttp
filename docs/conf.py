@@ -22,7 +22,9 @@ IS_RELEASE_ON_RTD = (
     and os.environ["READTHEDOCS_VERSION_TYPE"] == "tag"
 )
 if IS_RELEASE_ON_RTD:
-    tags.add("is_release")
+    _sphinx_tags = globals().get("tags")
+    if _sphinx_tags is not None:
+        _sphinx_tags.add("is_release")
 
 _docs_path = os.path.dirname(__file__)
 _version_path = os.path.abspath(

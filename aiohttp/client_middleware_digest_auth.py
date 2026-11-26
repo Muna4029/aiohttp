@@ -12,7 +12,6 @@ import os
 import re
 import time
 from typing import (
-    Callable,
     Dict,
     Final,
     FrozenSet,
@@ -42,7 +41,7 @@ class DigestAuthChallenge(TypedDict, total=False):
     stale: str
 
 
-DigestFunctions: Dict[str, Callable[[bytes], "hashlib._Hash"]] = {
+DigestFunctions = {
     "MD5": hashlib.md5,
     "MD5-SESS": hashlib.md5,
     "SHA": hashlib.sha1,
@@ -204,9 +203,7 @@ class DigestAuthMiddleware:
         # Set of URLs defining the protection space
         self._protection_space: List[str] = []
 
-    async def _encode(
-        self, method: str, url: URL, body: Union[Payload, Literal[b""]]
-    ) -> str:
+    async def _encode(self, method: str, url: URL, body: Union[Payload, bytes]) -> str:
         """
         Build digest authorization header for the current challenge.
 
