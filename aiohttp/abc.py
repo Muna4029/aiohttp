@@ -49,8 +49,6 @@ class AbstractRouter(ABC):
 
 class AbstractMatchInfo(ABC):
 
-    __slots__ = ()
-
     @property  # pragma: no branch
     @abstractmethod
     def handler(self) -> Callable[[Request], Awaitable[StreamResponse]]:
@@ -157,7 +155,7 @@ else:
 ClearCookiePredicate = Callable[["Morsel[str]"], bool]
 
 
-class AbstractCookieJar(Sized, IterableBase):
+class AbstractCookieJar(Sized):
     """Abstract Cookie Jar."""
 
     def __init__(self, *, loop: asyncio.AbstractEventLoop | None = None) -> None:
@@ -237,8 +235,6 @@ class AbstractStreamWriter(ABC):
 
 class AbstractAccessLogger(ABC):
     """Abstract writer to access log."""
-
-    __slots__ = ("logger", "log_format")
 
     def __init__(self, logger: logging.Logger, log_format: str) -> None:
         self.logger = logger

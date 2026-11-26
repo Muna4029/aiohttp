@@ -86,8 +86,6 @@ class PayloadRegistry:
     note: we need zope.interface for more efficient adapter search
     """
 
-    __slots__ = ("_first", "_normal", "_last", "_normal_lookup")
-
     def __init__(self) -> None:
         self._first: list[_PayloadRegistryItem] = []
         self._normal: list[_PayloadRegistryItem] = []
@@ -103,8 +101,13 @@ class PayloadRegistry:
     ) -> "Payload":
         if self._first:
             for factory, type_ in self._first:
-                if isinstance(data, type_):
-                    return factory(data, *args, **kwargs)
+                try:
+                    if isinstance(data, type_):
+                        return factory(data, *args, **kwargs)
+                except TypeError:
+                    # Skip types that are not valid in isinstance (e.g. parameterized
+                    # typing objects like Iterable[str])
+                    continue
         # Try the fast lookup first
         if lookup_factory := self._normal_lookup.get(type(data)):
             return lookup_factory(data, *args, **kwargs)
@@ -113,8 +116,12 @@ class PayloadRegistry:
             return data
         # Fallback to the slower linear search
         for factory, type_ in _CHAIN(self._normal, self._last):
-            if isinstance(data, type_):
-                return factory(data, *args, **kwargs)
+            try:
+                if isinstance(data, type_):
+                    return factory(data, *args, **kwargs)
+            except TypeError:
+                # Skip types that are not valid in isinstance
+                continue
         raise LookupError()
 
     def register(
@@ -124,11 +131,17 @@ class PayloadRegistry:
             self._first.append((factory, type))
         elif order is Order.normal:
             self._normal.append((factory, type))
-            if isinstance(type, Iterable):
-                for t in type:
-                    self._normal_lookup[t] = factory
-            else:
+            # Support passing an iterable of types (e.g. [int, str]) without
+            # raising if a typing object is provided. Use direct iteration
+            # detection instead of isinstance(..., Iterable) which can raise
+            # TypeError for parameterized typing objects.
+            try:
+                iterator = iter(type)  # type: ignore
+            except TypeError:
                 self._normal_lookup[type] = factory
+            else:
+                for t in iterator:
+                    self._normal_lookup[t] = factory
         elif order is Order.try_last:
             self._last.append((factory, type))
         else:
