@@ -102,7 +102,7 @@ class Server(Generic[_Request]):
         writer: AbstractStreamWriter,
         task: "asyncio.Task[None]",
     ) -> BaseRequest:
-        return BaseRequest(message, payload, protocol, writer, task, self._loop)
+        return BaseRequest(message, payload, protocol, writer, task)
 
     def pre_shutdown(self) -> None:
         for conn in self._connections:

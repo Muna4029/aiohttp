@@ -219,8 +219,9 @@ class UrlMappingMatchInfo(BaseDict, AbstractMatchInfo):
     def __init__(self, match_dict: dict[str, str], route: AbstractRoute) -> None:
         super().__init__(match_dict)
         self._route = route
-        self._apps: list[Application] = []
-        self._current_app: Application | None = None
+        # Avoid runtime evaluation of Application in annotations; keep simple assignments
+        self._apps = []
+        self._current_app = None
         self._frozen = False
 
     @property
@@ -1234,7 +1235,10 @@ def _quote_path(value: str) -> str:
 def _unquote_path_safe(value: str) -> str:
     if "%" not in value:
         return value
-    return value.replace("%2F", "/").replace("%25", "%")
+    import re
+    # Replace only %2F / %2f sequences that are not preceded by '%' to avoid touching
+    # double-encoded sequences like "%252F". Do not blindly replace %25.
+    return re.sub(r'(?<!%)%2[Ff]', '/', value)
 
 
 def _requote_path(value: str) -> str:
@@ -1242,5 +1246,11 @@ def _requote_path(value: str) -> str:
     # but preserve existing %-sequences.
     result = _quote_path(value)
     if "%" in value:
-        result = result.replace("%25", "%")
+        import re
+        # Find %-sequences present in the original value (e.g. %2F) and revert
+        # their quoted form (%25xx) back to %xx in the result so original
+        # %-sequences are preserved without globally replacing all %25.
+        for seq in set(re.findall(r"%[0-9A-Fa-f]{2}", value)):
+            quoted = "%25" + seq[1:]
+            result = result.replace(quoted, seq)
     return result

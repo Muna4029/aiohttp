@@ -192,7 +192,10 @@ async def test_follow_symlink(
         fw.write(data)
 
     my_symlink_path = tmp_path / "my_symlink"
-    pathlib.Path(str(my_symlink_path)).symlink_to(str(my_dir_path), True)
+    try:
+        pathlib.Path(str(my_symlink_path)).symlink_to(str(my_dir_path), True)
+    except (OSError, NotImplementedError, PermissionError) as exc:
+        pytest.skip(f"symlinks are not supported on this platform: {exc}")
 
     app = web.Application()
 
@@ -524,7 +527,10 @@ async def test_access_compressed_file_as_symlink(
     www_dir = tmp_path / "www"
     www_dir.mkdir()
     gz_link = www_dir / "file.txt.gz"
-    gz_link.symlink_to(f"../{private_file.name}")
+    try:
+        gz_link.symlink_to(f"../{private_file.name}")
+    except (OSError, NotImplementedError, PermissionError) as exc:
+        pytest.skip(f"symlinks are not supported on this platform: {exc}")
 
     app = web.Application()
     app.router.add_static("/", www_dir)
