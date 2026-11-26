@@ -314,7 +314,7 @@ class MimeType:
     type: str
     subtype: str
     suffix: str
-    parameters: "MultiDictProxy[str]"
+    parameters: "MultiDictProxy"
 
 
 @functools.lru_cache(maxsize=56)
@@ -383,7 +383,7 @@ class EnsureOctetStream(Message):
 
 
 @functools.lru_cache(maxsize=56)
-def parse_content_type(raw: str) -> tuple[str, MappingProxyType[str, str]]:
+def parse_content_type(raw: str) -> tuple[str, MappingProxyType]:
     """Parse Content-Type header.
 
     Returns a tuple of the parsed content type and a
@@ -686,7 +686,7 @@ class TimerContext(BaseTimerContext):
             raise asyncio.TimeoutError from None
 
     def __enter__(self) -> BaseTimerContext:
-        task = asyncio.current_task(loop=self._loop)
+        task = asyncio.current_task()
         if task is None:
             raise RuntimeError("Timeout context manager should be used inside a task")
 
@@ -826,7 +826,7 @@ def set_exception(
 
     exc_is_sentinel = exc_cause is _EXC_SENTINEL
     exc_causes_itself = exc is exc_cause
-    if not exc_is_sentinel and not exc_causes_itself:
+    if not exc_is_sentinel and not exc_causes_itself and isinstance(exc, BaseException):
         exc.__cause__ = exc_cause
 
     fut.set_exception(exc)
@@ -1046,7 +1046,7 @@ class CookieMixin:
         )
 
 
-def populate_with_cookies(headers: "CIMultiDict[str]", cookies: SimpleCookie) -> None:
+def populate_with_cookies(headers: "CIMultiDict", cookies: SimpleCookie) -> None:
     for cookie in cookies.values():
         value = cookie.output(header="")[1:]
         headers.add(hdrs.SET_COOKIE, value)

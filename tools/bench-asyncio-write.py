@@ -97,7 +97,9 @@ async def time(loop, fn, *args):
 async def main(loop):
     _, writer = await asyncio.open_connection(port=PORT)
     print("Loop:", loop)
-    print("Transport:", writer._transport)
+    # Avoid accessing the private attribute writer._transport; use public
+    # StreamWriter API instead to retrieve connection info.
+    print("Transport:", writer.get_extra_info("peername"))
     res = [
         ("size/chunks", "Write option", "Mean", "Std dev", "loops", "Variation"),
     ]

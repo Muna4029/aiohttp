@@ -107,7 +107,7 @@ def _gen_default_accept_encoding() -> str:
 @frozen_dataclass_decorator
 class ContentDisposition:
     type: str | None
-    parameters: "MappingProxyType[str, str]"
+    parameters: Mapping[str, str]
     filename: str | None
 
 
@@ -119,7 +119,6 @@ class _RequestInfo(NamedTuple):
 
 
 class RequestInfo(_RequestInfo):
-
     def __new__(
         cls,
         url: URL,
@@ -666,15 +665,20 @@ class ClientResponse(HeadersMixin):
         """Read and decodes JSON response."""
         await self.read()
 
+        # Determine actual Content-Type header value from response headers
+        header_ct = (
+            self.headers.get("Content-Type") if self.headers is not None else None
+        )
+
         if content_type:
-            if not is_expected_content_type(self.content_type, content_type):
+            if not is_expected_content_type(header_ct, content_type):
                 raise ContentTypeError(
                     self.request_info,
                     self.history,
                     status=self.status,
                     message=(
                         "Attempt to decode JSON with "
-                        "unexpected mimetype: %s" % self.content_type
+                        "unexpected mimetype: %s" % header_ct
                     ),
                     headers=self.headers,
                 )
@@ -941,6 +945,16 @@ class ClientRequest:
         # get host/port
         if not url.raw_host:
             raise InvalidURL(url)
+
+        # set host, port and ssl flag according to the URL
+        # prefer decoded host/port attributes
+        self._host = url.host
+        # url.port may be None; pick default based on scheme
+        if url.port is not None:
+            self._port = url.port
+        else:
+            self._port = 443 if url.scheme in _SSL_SCHEMES else 80
+        self._is_ssl = url.scheme in _SSL_SCHEMES
 
         # basic auth info
         if url.raw_user or url.raw_password:

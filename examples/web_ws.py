@@ -10,7 +10,7 @@ import os
 from aiohttp import web
 
 WS_FILE = os.path.join(os.path.dirname(__file__), "websocket.html")
-sockets = web.AppKey("sockets", list[web.WebSocketResponse])
+sockets: web.AppKey[list[web.WebSocketResponse]] = web.AppKey("sockets")
 
 
 async def wshandler(request: web.Request) -> web.WebSocketResponse | web.Response:
@@ -60,4 +60,5 @@ def init() -> web.Application:
     return app
 
 
-web.run_app(init())
+if __name__ == "__main__":
+    web.run_app(init())

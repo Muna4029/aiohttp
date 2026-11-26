@@ -732,7 +732,7 @@ async def test_digest_auth_without_opaque(
 )
 async def test_auth_header_no_retry(
     aiohttp_server: AiohttpServer,
-    www_authenticate: str,
+    www_authenticate: Optional[str],
     digest_auth_mw: DigestAuthMiddleware,
 ) -> None:
     """Test that middleware doesn't retry with invalid WWW-Authenticate headers."""
@@ -1315,13 +1315,11 @@ async def test_case_sensitive_algorithm_server(
     app.router.add_get("/api/test", handler)
     server = await aiohttp_server(app)
 
-    async with (
-        ClientSession(middlewares=(digest_auth_mw,)) as session,
-        session.get(server.make_url("/api/test")) as resp,
-    ):
-        assert resp.status == 200
-        text = await resp.text()
-        assert text == "Success"
+    async with ClientSession(middlewares=(digest_auth_mw,)) as session:
+        async with session.get(server.make_url("/api/test")) as resp:
+            assert resp.status == 200
+            text = await resp.text()
+            assert text == "Success"
 
     # Verify the middleware preserved the exact algorithm case
     assert request_count == 2  # Initial 401 + successful retry

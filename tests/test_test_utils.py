@@ -26,7 +26,7 @@ from aiohttp.test_utils import (
 if sys.version_info >= (3, 11):
     from typing import assert_type
 
-_TestClient = TestClient[web.Request, web.Application]
+_TestClient = TestClient
 
 _hello_world_str = "Hello, world"
 _hello_world_bytes = _hello_world_str.encode("utf-8")
@@ -264,7 +264,7 @@ async def test_test_client_raw_server_props() -> None:
         assert isinstance(client.port, int)
         assert client.server is not None
         if sys.version_info >= (3, 11):
-            assert_type(client.app, None)
+            assert_type(client.app, type(None))
         assert client.app is None
     assert client.port == 0
 

@@ -292,8 +292,13 @@ class ClientWebSocketResponse:
 
         while True:
             try:
-                async with async_timeout.timeout(self._timeout.ws_close):
+                # ws_close may be None (no timeout); guard before passing to async_timeout
+                timeout = self._timeout.ws_close
+                if timeout is None:
                     msg = await self._reader.read()
+                else:
+                    async with async_timeout.timeout(timeout):
+                        msg = await self._reader.read()
             except asyncio.CancelledError:
                 self._close_code = WSCloseCode.ABNORMAL_CLOSURE
                 self._response.close()

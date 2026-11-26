@@ -107,51 +107,64 @@ async def run_tests() -> None:
     # Create logging middleware
     logging_middleware = LoggingMiddleware()
 
-    # Use middleware in session
-    async with ClientSession(middlewares=(logging_middleware,)) as session:
-        # Test 1: Simple GET request
-        print("\n=== Test 1: Simple GET request ===")
-        async with session.get("http://localhost:8080/hello") as resp:
-            data = await resp.json()
-            print(f"Response: {data}")
+    # Start the test server in the background so the client can connect
+    server_task = asyncio.create_task(run_test_server())
+    # Give the server a moment to start
+    await asyncio.sleep(0.1)
 
-        # Test 2: GET with parameter
-        print("\n=== Test 2: GET with parameter ===")
-        async with session.get("http://localhost:8080/hello/Alice") as resp:
-            data = await resp.json()
-            print(f"Response: {data}")
-
-        # Test 3: Slow request
-        print("\n=== Test 3: Slow request (2 seconds) ===")
-        async with session.get("http://localhost:8080/slow/2") as resp:
-            data = await resp.json()
-            print(f"Response: {data}")
-
-        # Test 4: Error response
-        print("\n=== Test 4: Error response ===")
-        async with session.get("http://localhost:8080/error/404") as resp:
-            text = await resp.text()
-            print(f"Response: {text}")
-
-        # Test 5: POST with JSON data
-        print("\n=== Test 5: POST with JSON data ===")
-        payload = {"name": "Bob", "age": 30, "city": "New York"}
-        async with session.post("http://localhost:8080/echo", json=payload) as resp:
-            data = await resp.json()
-            print(f"Response: {data}")
-
-        # Test 6: Multiple concurrent requests
-        print("\n=== Test 6: Multiple concurrent requests ===")
-        coros: list[Coroutine[Any, Any, ClientResponse]] = []
-        for i in range(3):
-            coro = session.get(f"http://localhost:8080/hello/User{i}")
-            coros.append(coro)
-
-        responses = await asyncio.gather(*coros)
-        for i, resp in enumerate(responses):
-            async with resp:
+    try:
+        # Use a normal ClientSession (server middleware runs on the server side)
+        async with ClientSession() as session:
+            # Test 1: Simple GET request
+            print("\n=== Test 1: Simple GET request ===")
+            async with session.get("http://localhost:8080/hello") as resp:
                 data = await resp.json()
-                print(f"Concurrent request {i}: {data}")
+                print(f"Response: {data}")
+
+            # Test 2: GET with parameter
+            print("\n=== Test 2: GET with parameter ===")
+            async with session.get("http://localhost:8080/hello/Alice") as resp:
+                data = await resp.json()
+                print(f"Response: {data}")
+
+            # Test 3: Slow request
+            print("\n=== Test 3: Slow request (2 seconds) ===")
+            async with session.get("http://localhost:8080/slow/2") as resp:
+                data = await resp.json()
+                print(f"Response: {data}")
+
+            # Test 4: Error response
+            print("\n=== Test 4: Error response ===")
+            async with session.get("http://localhost:8080/error/404") as resp:
+                text = await resp.text()
+                print(f"Response: {text}")
+
+            # Test 5: POST with JSON data
+            print("\n=== Test 5: POST with JSON data ===")
+            payload = {"name": "Bob", "age": 30, "city": "New York"}
+            async with session.post("http://localhost:8080/echo", json=payload) as resp:
+                data = await resp.json()
+                print(f"Response: {data}")
+
+            # Test 6: Multiple concurrent requests
+            print("\n=== Test 6: Multiple concurrent requests ===")
+            coros: list[Coroutine[Any, Any, ClientResponse]] = []
+            for i in range(3):
+                coro = session.get(f"http://localhost:8080/hello/User{i}")
+                coros.append(coro)
+
+            responses = await asyncio.gather(*coros)
+            for i, resp in enumerate(responses):
+                async with resp:
+                    data = await resp.json()
+                    print(f"Concurrent request {i}: {data}")
+    finally:
+        # Ensure the background server is cancelled when tests complete
+        server_task.cancel()
+        try:
+            await server_task
+        except asyncio.CancelledError:
+            pass
 
 
 async def main() -> None:

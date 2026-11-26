@@ -193,7 +193,7 @@ async def test_ws_connect_custom_response(
     loop: asyncio.AbstractEventLoop, ws_key: str, key_data: bytes
 ) -> None:
     class CustomResponse(client.ClientWebSocketResponse):
-        def read(self, decode: bool = False) -> str:
+        async def read(self, decode: bool = False) -> str:
             return "customized!"
 
     resp = mock.Mock()
@@ -216,7 +216,7 @@ async def test_ws_connect_custom_response(
 
     # TODO(PY313): Use TypeVar(default=) to make ClientSession Generic over response classes.
     #              Then .ws_connect() can return CustomResponse here.
-    assert res.read() == "customized!"  # type: ignore[attr-defined]
+    assert await res.read() == "customized!"
 
 
 async def test_ws_connect_err_status(
@@ -800,7 +800,7 @@ async def test_ws_connect_deflate_per_message(
                 )
 
                 await resp.send_frame(b"[{}]", aiohttp.WSMsgType.TEXT, compress=-9)
-                send_frame.assert_called_with(b"[{}]", aiohttp.WSMsgType.TEXT, -9)
+                send_frame.assert_called_with(b"[{}]", aiohttp.WSMsgType.TEXT, compress=-9)
 
                 await session.close()
 

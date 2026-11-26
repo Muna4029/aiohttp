@@ -59,7 +59,7 @@ class MockTransport(asyncio.Transport):
         """Swallow is_closing."""
         return False
 
-    def write(self, data: bytes | bytearray | memoryview) -> None:
+    def write(self, data) -> None:
         """Swallow writes."""
 
 

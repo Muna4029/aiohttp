@@ -431,7 +431,7 @@ class StreamResponse(BaseClass, HeadersMixin, CookieMixin):
         assert writer is not None
         # status line
         version = request.version
-        status_line = f"HTTP/{version[0]}.{version[1]} {self._status} {self._reason}"
+        status_line = f"HTTP/{version.major}.{version.minor} {self._status} {self._reason}"
         await writer.write_headers(status_line, self._headers)
 
         # Send headers immediately if not opted into buffering
@@ -669,9 +669,9 @@ class Response(StreamResponse):
         assert self._payload_writer is not None
         if body is None or self._must_be_empty_body:
             await super().write_eof()
-        elif isinstance(self._body, Payload):
-            await self._body.write(self._payload_writer)
-            await self._body.close()
+        elif isinstance(body, Payload):
+            await body.write(self._payload_writer)
+            await body.close()
             await super().write_eof()
         else:
             await super().write_eof(cast(bytes, body))
@@ -685,9 +685,10 @@ class Response(StreamResponse):
                 if (size := self._body.size) is not None:
                     self._headers[hdrs.CONTENT_LENGTH] = str(size)
             else:
-                body_len = len(self._body) if self._body else "0"
+                # compute numeric body length (int) to avoid comparing str and int
+                body_len = len(self._body) if self._body is not None else 0
                 # https://www.rfc-editor.org/rfc/rfc9110.html#section-8.6-7
-                if body_len != "0" or (
+                if body_len != 0 or (
                     self.status != 304 and request.method not in hdrs.METH_HEAD_ALL
                 ):
                     self._headers[hdrs.CONTENT_LENGTH] = str(body_len)

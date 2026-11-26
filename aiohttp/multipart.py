@@ -1116,7 +1116,7 @@ class MultipartPayloadWriter:
     async def write(self, chunk: bytes) -> None:
         if self._compress is not None:
             if chunk:
-                chunk = await self._compress.compress(chunk)
+                chunk = self._compress.compress(chunk)
                 if not chunk:
                     return
 

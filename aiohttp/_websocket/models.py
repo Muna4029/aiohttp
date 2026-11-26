@@ -53,7 +53,7 @@ class WSMessageText(NamedTuple):
     type: Literal[WSMsgType.TEXT] = WSMsgType.TEXT
 
     def json(
-        self, *, loads: Callable[[str | bytes | bytearray], Any] = json.loads
+        self, *, loads: Callable[[str], Any] = json.loads
     ) -> Any:
         """Return parsed JSON data."""
         return loads(self.data)
@@ -66,7 +66,7 @@ class WSMessageBinary(NamedTuple):
     type: Literal[WSMsgType.BINARY] = WSMsgType.BINARY
 
     def json(
-        self, *, loads: Callable[[str | bytes | bytearray], Any] = json.loads
+        self, *, loads: Callable[[bytes], Any] = lambda b: json.loads(b.decode())
     ) -> Any:
         """Return parsed JSON data."""
         return loads(self.data)

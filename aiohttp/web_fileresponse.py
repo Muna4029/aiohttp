@@ -108,7 +108,7 @@ class FileResponse(StreamResponse):
             None, self._seek_and_read, fobj, offset, chunk_size
         )
         while chunk:
-            await writer.write(chunk)
+            writer.write(chunk)
             count = count - chunk_size
             if count <= 0:
                 break

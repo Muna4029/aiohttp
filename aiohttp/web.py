@@ -5,7 +5,9 @@ import socket
 import sys
 import warnings
 from argparse import ArgumentParser
-from collections.abc import Awaitable, Callable, Iterable, Iterable as TypingIterable
+from collections.abc import Awaitable, Callable, Iterable
+
+TypingIterable = Iterable
 from contextlib import suppress
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, cast
@@ -338,7 +340,7 @@ async def _run_app(
                             reuse_port=reuse_port,
                         )
                     )
-        elif path is None and sock is None or port is not None:
+        elif path is None and sock is None:
             sites.append(
                 TCPSite(
                     runner,
@@ -397,8 +399,9 @@ async def _run_app(
         if print:  # pragma: no branch
             names = sorted(str(s.name) for s in runner.sites)
             print(
-                "======== Running on {} ========\n"
-                "(Press CTRL+C to quit)".format(", ".join(names))
+                "======== Running on {} ========\n" "(Press CTRL+C to quit)".format(
+                    ", ".join(names)
+                )
             )
 
         # sleep forever by 1 hour intervals,

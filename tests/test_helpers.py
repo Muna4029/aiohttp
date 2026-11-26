@@ -100,7 +100,7 @@ def test_parse_mimetype(mimetype: str, expected: helpers.MimeType) -> None:
     ],
 )
 def test_parse_content_type(
-    content_type: str, expected: Tuple[str, MappingProxyType[str, str]]
+    content_type: str, expected: Tuple[str, MappingProxyType]
 ) -> None:
     result = helpers.parse_content_type(content_type)
 

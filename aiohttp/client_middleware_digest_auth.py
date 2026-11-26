@@ -33,7 +33,7 @@ class DigestAuthChallenge(TypedDict, total=False):
     stale: str
 
 
-DigestFunctions: dict[str, Callable[[bytes], "hashlib._Hash"]] = {
+DigestFunctions: dict[str, Callable[[bytes], object]] = {
     "MD5": hashlib.md5,
     "MD5-SESS": hashlib.md5,
     "SHA": hashlib.sha1,

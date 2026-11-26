@@ -55,7 +55,7 @@ from aiohttp.typedefs import Handler, Query
 
 @pytest.fixture(autouse=True)
 def cleanup(
-    cleanup_payload_pending_file_closes: None,
+    cleanup_payload_pending_file_closes,
 ) -> None:
     """Ensure all pending file close operations complete during test teardown."""
 
@@ -779,7 +779,7 @@ async def test_ssl_client_alpn(
     ssl_ctx.set_alpn_protocols(("http/1.1",))
     server = await aiohttp_server(app, ssl=ssl_ctx)
 
-    connector = aiohttp.TCPConnector(ssl=False)
+    connector = aiohttp.TCPConnector(ssl=True)
     client = await aiohttp_client(server, connector=connector)
     async with client.get("/") as resp:
         assert resp.status == 200
@@ -1247,7 +1247,7 @@ async def test_connection_timeout_error(
 
     # Mock the connector's connect method to raise asyncio.TimeoutError
     mock_connect = mocker.patch.object(
-        client.session._connector, "connect", side_effect=asyncio.TimeoutError()
+        client._session.connector, "connect", side_effect=asyncio.TimeoutError()
     )
 
     with pytest.raises(aiohttp.ConnectionTimeoutError) as exc_info:
@@ -2580,7 +2580,7 @@ async def test_cookies(aiohttp_client: AiohttpClient) -> None:
         assert request.cookies["test3"] == "456"
         return web.Response()
 
-    c: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c: http.cookies.Morsel = http.cookies.Morsel()
     c.set("test3", "456", "456")
 
     app = web.Application()
@@ -2600,17 +2600,17 @@ async def test_cookies_per_request(aiohttp_client: AiohttpClient) -> None:
         assert request.cookies["test6"] == "abc"
         return web.Response()
 
-    c: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c: http.cookies.Morsel = http.cookies.Morsel()
     c.set("test3", "456", "456")
 
     app = web.Application()
     app.router.add_get("/", handler)
     client = await aiohttp_client(app, cookies={"test1": "123", "test2": c})
 
-    rc: http.cookies.Morsel[str] = http.cookies.Morsel()
+    rc: http.cookies.Morsel = http.cookies.Morsel()
     rc.set("test6", "abc", "abc")
 
-    cookies: dict[str, str | http.cookies.Morsel[str]]
+    cookies: dict[str, str | http.cookies.Morsel]
     cookies = {"test4": "789", "test5": rc}
     async with client.get("/", cookies=cookies) as resp:
         assert 200 == resp.status
@@ -2671,7 +2671,7 @@ async def test_morsel_with_attributes(aiohttp_client: AiohttpClient) -> None:
         assert request.cookies["test3"] == "456"
         return web.Response()
 
-    c: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c: http.cookies.Morsel = http.cookies.Morsel()
     c.set("test3", "456", "456")
     c["httponly"] = True
     c["secure"] = True
@@ -3235,16 +3235,14 @@ async def test_creds_in_auth_and_redirect_url(
 
     connector = aiohttp.TCPConnector(resolver=FakeResolver(), ssl=False)
 
-    async with (
-        aiohttp.ClientSession(connector=connector) as client,
-        client.get(url_from, auth=aiohttp.BasicAuth("user", "pass")) as resp,
-    ):
-        assert len(resp.history) == 1
-        assert str(resp.url) == "http://example.com"
-        assert resp.status == 200
-        assert (
-            resp.request_info.headers.get("authorization") == "Basic dXNlcjo="
-        ), "Expected redirect credentials to take precedence over provided auth"
+    async with aiohttp.ClientSession(connector=connector) as client:
+        async with client.get(url_from, auth=aiohttp.BasicAuth("user", "pass")) as resp:
+            assert len(resp.history) == 1
+            assert str(resp.url) == "http://example.com"
+            assert resp.status == 200
+            assert (
+                resp.request_info.headers.get("authorization") == "Basic dXNlcjo="
+            ), "Expected redirect credentials to take precedence over provided auth"
 
 
 @pytest.fixture
@@ -4163,19 +4161,19 @@ async def test_read_timeout_closes_connection(aiohttp_client: AiohttpClient) -> 
         await client.get("/")
 
     # Make sure its really closed
-    assert client.session.connector is not None
-    assert not client.session.connector._conns
+    assert client._session.connector is not None
+    assert not client._session.connector._conns
 
     with pytest.raises(asyncio.TimeoutError):
         await client.get("/")
 
     # Make sure its really closed
-    assert not client.session.connector._conns
+    assert not client._session.connector._conns
     async with client.get("/") as result:
         assert await result.read() == b"request:3"
 
     # Make sure its not closed
-    assert client.session.connector._conns
+    assert client._session.connector._conns
 
 
 async def test_read_timeout_on_prepared_response(aiohttp_client: AiohttpClient) -> None:
@@ -4205,7 +4203,7 @@ async def test_timeout_with_full_buffer(aiohttp_client: AiohttpClient) -> None:
             await resp.write(b"1" * 1000)
             await asyncio.sleep(0.01)
 
-    async def request(client: TestClient[web.Request, web.Application]) -> None:
+    async def request(client: TestClient) -> None:
         timeout = aiohttp.ClientTimeout(total=0.5)
         async with client.get("/", timeout=timeout) as resp:
             with pytest.raises(asyncio.TimeoutError):
@@ -5347,9 +5345,9 @@ async def test_amazon_like_cookie_scenario(aiohttp_client: AiohttpClient) -> Non
         ), f"Expected 2 session-id-time cookies, got {len(session_id_times)}"
 
         # Now test that the raw headers were properly preserved
-        assert resp._raw_cookie_headers is not None
+        assert cookie_headers is not None
         assert (
-            len(resp._raw_cookie_headers) == 12
+            len(cookie_headers) == 12
         ), "All raw headers should be preserved"
 
 

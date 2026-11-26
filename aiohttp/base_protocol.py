@@ -19,10 +19,10 @@ class BaseProtocol(asyncio.Protocol):
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop: asyncio.AbstractEventLoop = loop
         self._paused = False
-        self._drain_waiter: asyncio.Future[None] | None = None
+        self._drain_waiter: Optional[asyncio.Future[None]] = None
         self._reading_paused = False
 
-        self.transport: asyncio.Transport | None = None
+        self.transport: Optional[asyncio.Transport] = None
 
     @property
     def connected(self) -> bool:
@@ -68,7 +68,7 @@ class BaseProtocol(asyncio.Protocol):
         tcp_nodelay(tr, True)
         self.transport = tr
 
-    def connection_lost(self, exc: BaseException | None) -> None:
+    def connection_lost(self, exc: Optional[BaseException]) -> None:
         # Wake up the writer if currently paused.
         self.transport = None
         if not self._paused:

@@ -4,7 +4,6 @@ import socket
 import ssl
 import weakref
 from collections.abc import MutableMapping
-from typing import NoReturn
 from unittest import mock
 
 import pytest
@@ -14,7 +13,6 @@ from yarl import URL
 from aiohttp import ETag, HttpVersion, web
 from aiohttp.base_protocol import BaseProtocol
 from aiohttp.http_parser import RawRequestMessage
-from aiohttp.pytest_plugin import AiohttpClient
 from aiohttp.streams import StreamReader
 from aiohttp.test_utils import make_mocked_request
 
@@ -604,7 +602,7 @@ def test_single_forwarded_header_long_quoted_string() -> None:
 
 
 def test_multiple_forwarded_headers() -> None:
-    headers = CIMultiDict[str]()
+    headers = CIMultiDict()
     headers.add("Forwarded", "By=identifier1;for=identifier2, BY=identifier3")
     headers.add("Forwarded", "By=identifier4;fOr=identifier5")
     req = make_mocked_request("GET", "/", headers=headers)
@@ -631,7 +629,7 @@ def test_multiple_forwarded_headers_bad_syntax() -> None:
 
 
 def test_multiple_forwarded_headers_injection() -> None:
-    headers = CIMultiDict[str]()
+    headers = CIMultiDict()
     # This could be sent by an attacker, hoping to "shadow" the second header.
     headers.add("Forwarded", 'for=_injected;by="')
     # This is added by our trusted reverse proxy.

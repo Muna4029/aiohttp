@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 from aiohttp import web
 
-args_key = web.AppKey("args_key", Namespace)
+args_key: web.AppKey[Namespace] = web.AppKey("args_key")
 
 
 async def display_message(req: web.Request) -> web.StreamResponse:
@@ -37,7 +37,7 @@ def init(argv: Sequence[str] | None) -> web.Application:
 
     # Optional argument
     arg_parser.add_argument(
-        "--repeat", help="number of times to repeat message", type=int, default="1"
+        "--repeat", help="number of times to repeat message", type=int, default=1
     )
 
     # Avoid conflict with -h from `aiohttp.web` CLI parser

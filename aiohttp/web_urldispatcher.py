@@ -219,8 +219,8 @@ class UrlMappingMatchInfo(BaseDict, AbstractMatchInfo):
     def __init__(self, match_dict: dict[str, str], route: AbstractRoute) -> None:
         super().__init__(match_dict)
         self._route = route
-        self._apps: list[Application] = []
-        self._current_app: Application | None = None
+        self._apps: list["Application"] = []
+        self._current_app: "Application | None" = None
         self._frozen = False
 
     @property
@@ -310,8 +310,8 @@ async def _default_expect_handler(request: Request) -> None:
 class Resource(AbstractResource):
     def __init__(self, *, name: str | None = None) -> None:
         super().__init__(name=name)
-        self._routes: dict[str, ResourceRoute] = {}
-        self._any_route: ResourceRoute | None = None
+        self._routes: dict[str, "ResourceRoute"] = {}
+        self._any_route: "ResourceRoute | None" = None
         self._allowed_methods: set[str] = set()
 
     def add_route(
@@ -321,10 +321,22 @@ class Resource(AbstractResource):
         *,
         expect_handler: _ExpectHandler | None = None,
     ) -> "ResourceRoute":
-        if route := self._routes.get(method, self._any_route):
+        # Check for exact method duplication first
+        route = self._routes.get(method)
+        if route is not None:
             raise RuntimeError(
                 "Added route will never be executed, "
                 f"method {route.method} is already "
+                "registered"
+            )
+
+        # If an "any" route (catch-all) exists, adding another route with the same
+        # method as that any-route is a conflict. Do not treat presence of any-route
+        # as a conflict for arbitrary specific methods.
+        if self._any_route is not None and method == self._any_route.method:
+            raise RuntimeError(
+                "Added route will never be executed, "
+                f"method {self._any_route.method} is already "
                 "registered"
             )
 

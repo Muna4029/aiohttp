@@ -368,7 +368,7 @@ class ClientConnectorCertificateError(*cert_errors_bases):  # type: ignore[misc]
 
     @property
     def ssl(self) -> bool:
-        return self._conn_key.is_ssl
+        return self._conn_key.ssl
 
     def __str__(self) -> str:
         return (

@@ -71,12 +71,12 @@ class payload_type:
         self.type = type
         self.order = order
 
-    def __call__(self, factory: type["Payload"]) -> type["Payload"]:
+    def __call__(self, factory: "PayloadType") -> "PayloadType":
         register_payload(factory, self.type, order=self.order)
         return factory
 
 
-PayloadType = type["Payload"]
+PayloadType = Any
 _PayloadRegistryItem = tuple[PayloadType, Any]
 
 
@@ -98,7 +98,7 @@ class PayloadRegistry:
         self,
         data: Any,
         *args: Any,
-        _CHAIN: "type[chain[_PayloadRegistryItem]]" = chain,
+        _CHAIN: Any = chain,
         **kwargs: Any,
     ) -> "Payload":
         if self._first:

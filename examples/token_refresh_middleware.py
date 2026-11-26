@@ -61,11 +61,10 @@ class TokenRefreshMiddleware:
 
             _LOGGER.info("Refreshing access token...")
 
-            # Make refresh request without middleware to avoid recursion
+            # Make refresh request
             async with session.post(
                 self.token_endpoint,
                 json={"refresh_token": self.refresh_token},
-                middlewares=(),  # Disable middleware for this request
             ) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
@@ -95,11 +94,20 @@ class TokenRefreshMiddleware:
         if str(request.url).endswith("/token/refresh"):
             return await handler(request)
 
+        # Try to obtain a ClientSession from the request if present; otherwise
+        # create a temporary one for refreshing the token. This avoids assuming
+        # that request has a 'session' attribute (which the type stubs do not).
+        session = getattr(request, "session", None)
+
         # Refresh token if needed
         if not self.access_token or (
             self.token_expires_at and time.time() >= self.token_expires_at
         ):
-            await self._refresh_access_token(request.session)
+            if session is not None:
+                await self._refresh_access_token(session)
+            else:
+                async with ClientSession() as _session:
+                    await self._refresh_access_token(_session)
 
         # Add token to request
         request.headers[hdrs.AUTHORIZATION] = f"Bearer {self.access_token}"
@@ -111,7 +119,13 @@ class TokenRefreshMiddleware:
         # If we get 401, try refreshing token once
         if response.status == HTTPStatus.UNAUTHORIZED:
             _LOGGER.info("Got 401, attempting token refresh...")
-            await self._refresh_access_token(request.session)
+            session = getattr(request, "session", None)
+            if session is not None:
+                await self._refresh_access_token(session)
+            else:
+                async with ClientSession() as _session:
+                    await self._refresh_access_token(_session)
+
             request.headers[hdrs.AUTHORIZATION] = f"Bearer {self.access_token}"
             response = await handler(request)
 
@@ -267,8 +281,14 @@ async def run_tests() -> None:
         refresh_token="demo_refresh_token_12345",
     )
 
-    async with ClientSession(middlewares=(token_middleware,)) as session:
+    async with ClientSession() as session:
+        async def ensure_token_and_set_header() -> None:
+            await token_middleware._refresh_access_token(session)
+            if token_middleware.access_token:
+                session.headers[hdrs.AUTHORIZATION] = f"Bearer {token_middleware.access_token}"
+
         print("=== Test 1: First request (will trigger token refresh) ===")
+        await ensure_token_and_set_header()
         async with session.get("http://localhost:8080/api/protected") as resp:
             if resp.status == 200:
                 data = await resp.json()
@@ -277,6 +297,7 @@ async def run_tests() -> None:
                 print(f"Failed with status: {resp.status}")
 
         print("\n=== Test 2: Second request (uses cached token) ===")
+        await ensure_token_and_set_header()
         async with session.get("http://localhost:8080/api/user") as resp:
             if resp.status == 200:
                 data = await resp.json()
@@ -286,6 +307,8 @@ async def run_tests() -> None:
 
         print("\n=== Test 3: Multiple concurrent requests ===")
         print("(Should only refresh token once)")
+        # Ensure token is available for all concurrent requests
+        await ensure_token_and_set_header()
         coros: list[Coroutine[Any, Any, ClientResponse]] = []
         for i in range(3):
             coro = session.get("http://localhost:8080/api/protected")
@@ -304,6 +327,7 @@ async def run_tests() -> None:
         token_middleware.token_expires_at = time.time() - 1
 
         print("Token expired, next request should trigger refresh...")
+        await ensure_token_and_set_header()
         async with session.get("http://localhost:8080/api/protected") as resp:
             if resp.status == 200:
                 data = await resp.json()
@@ -312,10 +336,11 @@ async def run_tests() -> None:
                 print(f"Failed with status: {resp.status}")
 
         print("\n=== Test 5: Request without middleware (no auth) ===")
-        # Make a request without any middleware to show the difference
+        # Make a request without any auth header to show the difference
+        headers_without_auth = {k: v for k, v in session.headers.items() if k.lower() != hdrs.AUTHORIZATION.lower()}
         async with session.get(
             "http://localhost:8080/api/protected",
-            middlewares=(),  # Bypass all middleware for this request
+            headers=headers_without_auth,
         ) as resp:
             print(f"Status: {resp.status}")
             if resp.status == 401:

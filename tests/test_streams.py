@@ -27,7 +27,12 @@ def chunkify(seq: Sequence[_T], n: int) -> Iterator[Sequence[_T]]:
 
 async def create_stream() -> streams.StreamReader:
     loop = asyncio.get_event_loop()
-    protocol = mock.Mock(_reading_paused=False)
+
+    class _Proto(base_protocol.BaseProtocol):
+        def __init__(self):
+            self._reading_paused = False
+
+    protocol = _Proto()
     stream = streams.StreamReader(protocol, 2**16, loop=loop)
     stream.feed_data(DATA)
     stream.feed_eof()
@@ -35,8 +40,12 @@ async def create_stream() -> streams.StreamReader:
 
 
 @pytest.fixture
-def protocol() -> mock.Mock:
-    return mock.Mock(_reading_paused=False)
+def protocol() -> base_protocol.BaseProtocol:
+    class _Proto(base_protocol.BaseProtocol):
+        def __init__(self):
+            self._reading_paused = False
+
+    return _Proto()
 
 
 MEMLEAK_SKIP_TYPES = (
@@ -76,7 +85,12 @@ class TestStreamReader:
 
     def _make_one(self, limit: int = 2**16) -> streams.StreamReader:
         loop = asyncio.get_event_loop()
-        return streams.StreamReader(mock.Mock(_reading_paused=False), limit, loop=loop)
+
+        class _Proto(base_protocol.BaseProtocol):
+            def __init__(self):
+                self._reading_paused = False
+
+        return streams.StreamReader(_Proto(), limit, loop=loop)
 
     async def test_create_waiter(self) -> None:
         loop = asyncio.get_event_loop()

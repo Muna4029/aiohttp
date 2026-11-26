@@ -247,8 +247,22 @@ async def run_test_server() -> web.AppRunner:
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "localhost", 8080)
+    # Bind to port 0 to pick an ephemeral free port (avoids CI port collisions)
+    site = web.TCPSite(runner, "localhost", 0)
     await site.start()
+    # Determine the bound port and expose a base URL for tests to consume.
+    sockets = getattr(site._server, "sockets", None)
+    port = None
+    if sockets:
+        sock = sockets[0]
+        addr = sock.getsockname()
+        port = addr[1] if isinstance(addr, tuple) else addr
+    else:
+        # Fallback to 8080 if socket info is not available for some reason
+        port = 8080
+    # Export base URL for use by run_tests (main should start server before running tests)
+    global TEST_SERVER_BASE
+    TEST_SERVER_BASE = f"http://localhost:{port}"
     return runner
 
 
@@ -261,15 +275,18 @@ async def run_tests() -> None:
 
     # Combine middleware - order matters!
     # Applied in order: logging -> auth -> retry -> request
-    async with ClientSession(
+    async with ClientSession(  # type: ignore[arg-type]
         middlewares=(logging_middleware, auth_middleware, retry_middleware)
     ) as session:
+
+        # Use the dynamically determined test server base URL (set by run_test_server)
+        base = globals().get("TEST_SERVER_BASE", "http://localhost:8080")
 
         print(
             "=== Test 1: Protected endpoint with auth (fails once, then succeeds) ==="
         )
         print("This tests retry + auth working together...")
-        async with session.get("http://localhost:8080/protected") as resp:
+        async with session.get(f"{base}/protected") as resp:
             if resp.status == 200:
                 data = await resp.json()
                 print(f"Success after retry! Response: {data}")
@@ -278,7 +295,7 @@ async def run_tests() -> None:
 
         print("\n=== Test 2: Flaky endpoint (fails twice, then succeeds) ===")
         print("Watch the logs to see retries in action...")
-        async with session.get("http://localhost:8080/flaky") as resp:
+        async with session.get(f"{base}/flaky") as resp:
             if resp.status == 200:
                 data = await resp.json()
                 print(f"Success after retries! Response: {data}")
@@ -287,18 +304,18 @@ async def run_tests() -> None:
                 print(f"Failed with status {resp.status}: {text}")
 
         print("\n=== Test 3: Always failing endpoint ===")
-        async with session.get("http://localhost:8080/always-fail") as resp:
+        async with session.get(f"{base}/always-fail") as resp:
             print(f"Final status after retries: {resp.status}")
 
         print("\n=== Test 4: Non-retryable status (404) ===")
-        async with session.get("http://localhost:8080/status/404") as resp:
+        async with session.get(f"{base}/status/404") as resp:
             print(f"Status: {resp.status} (no retries for 404)")
 
         # Test without middleware for comparison
         print("\n=== Test 5: Request without middleware ===")
         print("Making a request to protected endpoint without middleware...")
         async with session.get(
-            "http://localhost:8080/protected", middlewares=()
+            f"{base}/protected", middlewares=()  # type: ignore[arg-type]
         ) as resp:
             print(f"Status without middleware: {resp.status}")
             if resp.status == 401:

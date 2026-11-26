@@ -2,8 +2,16 @@ import logging
 import socket
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Generator, Iterable, Sequence, Sized
-from http.cookies import BaseCookie, Morsel
 from typing import TYPE_CHECKING, Any, TypedDict
+
+# http.cookies.BaseCookie and http.cookies.Morsel are not subscriptable at runtime
+# and can cause mypy errors when used as generics. Import them only for type
+# checking and bind Any at runtime to avoid subscript/runtime issues.
+if TYPE_CHECKING:
+    from http.cookies import BaseCookie, Morsel  # type: ignore
+else:
+    BaseCookie = Any  # type: ignore
+    Morsel = Any  # type: ignore
 
 from multidict import CIMultiDict
 from yarl import URL

@@ -58,7 +58,7 @@ if sys.version_info >= (3, 11):
 else:
     Self = Any
 
-_ApplicationNone = TypeVar("_ApplicationNone", Application, None)
+_ApplicationNone = TypeVar("_ApplicationNone", Application, type(None))
 _Request = TypeVar("_Request", bound=BaseRequest)
 
 REUSE_ADDRESS = os.name == "posix" and sys.platform != "cygwin"
@@ -568,10 +568,15 @@ def _create_app_mock() -> mock.MagicMock:
     def set_dict(app: Any, key: str, value: Any) -> None:
         app.__app_dict[key] = value
 
-    app = mock.MagicMock(spec=Application)
+    class AppMock(mock.MagicMock):
+        def __getitem__(self, key: str) -> Any:  # type: ignore[override]
+            return get_dict(self, key)
+
+        def __setitem__(self, key: str, value: Any) -> None:  # type: ignore[override]
+            set_dict(self, key, value)
+
+    app = AppMock(spec=Application)
     app.__app_dict = {}
-    app.__getitem__ = get_dict
-    app.__setitem__ = set_dict
 
     app.on_response_prepare = Signal(app)
     app.on_response_prepare.freeze()
@@ -623,7 +628,9 @@ def make_mocked_request(
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = mock.Mock()
-            loop.create_future.return_value = ()
+            # Provide a real Future instance instead of an empty tuple so
+            # callers of loop.create_future() receive an awaitable/future.
+            loop.create_future.return_value = asyncio.Future()
 
     if version < HttpVersion(1, 1):
         closing = True

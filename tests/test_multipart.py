@@ -1628,7 +1628,9 @@ async def test_body_part_reader_payload_as_bytes() -> None:
     # Create a mock BodyPartReader
     headers = CIMultiDictProxy(CIMultiDict({CONTENT_TYPE: "text/plain"}))
     protocol = mock.Mock(_reading_paused=False)
-    stream = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
+    # Modern asyncio.StreamReader no longer accepts the "loop" keyword argument.
+    # Specify the buffer limit by name to avoid passing positional protocol/loop args.
+    stream = StreamReader(limit=2**16)
     body_part = BodyPartReader(BOUNDARY, headers, stream)
 
     # Create the payload

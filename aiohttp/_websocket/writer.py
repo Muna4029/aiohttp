@@ -65,10 +65,14 @@ class WebSocketWriter:
         self._compressobj: Any = None  # actually compressobj
 
     async def send_frame(
-        self, message: bytes, opcode: int, compress: int | None = None
+        self, message: bytes, opcode: int | WSMsgType, compress: int | None = None
     ) -> None:
         """Send a frame over the websocket with message as its payload."""
-        if self._closing and not (opcode & WSMsgType.CLOSE):
+        # Coerce opcode to int for bitwise and numeric operations to satisfy
+        # static type checking and to work with WSMsgType IntEnum values.
+        opcode_int = int(opcode)
+
+        if self._closing and not (opcode_int & int(WSMsgType.CLOSE)):
             raise ClientConnectionResetError("Cannot write to closing transport")
 
         # RSV are the reserved bits in the frame header. They are used to
@@ -78,7 +82,7 @@ class WebSocketWriter:
         # Only compress larger packets (disabled)
         # Does small packet needs to be compressed?
         # if self.compress and opcode < 8 and len(message) > 124:
-        if (compress or self.compress) and opcode < 8:
+        if (compress or self.compress) and opcode_int < 8:
             # RSV1 (rsv = 0x40) is set for compressed frames
             # https://datatracker.ietf.org/doc/html/rfc7692#section-7.2.3.1
             rsv = 0x40
@@ -111,7 +115,7 @@ class WebSocketWriter:
 
         # Depending on the message length, the header is assembled differently.
         # The first byte is reserved for the opcode and the RSV bits.
-        first_byte = 0x80 | rsv | opcode
+        first_byte = 0x80 | rsv | opcode_int
         if msg_length < 126:
             header = PACK_LEN1(first_byte, msg_length | mask_bit)
             header_len = 2

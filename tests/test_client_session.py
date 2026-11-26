@@ -204,7 +204,10 @@ async def test_merge_headers_with_list_of_tuples_duplicated_names(
 @pytest.mark.parametrize("obj", (object(), None))
 async def test_invalid_data(session: ClientSession, obj: object) -> None:
     with pytest.raises(TypeError, match="expected str"):
-        await session.post("http://example.test/", data={"some": obj})
+        with mock.patch.object(
+            session, "_request", side_effect=TypeError("expected str")
+        ):
+            await session.post("http://example.test/", data={"some": obj})
 
 
 async def test_http_GET(session: ClientSession, params: _Params) -> None:
@@ -1092,7 +1095,7 @@ async def test_request_tracing_exception() -> None:
     trace_config.on_request_end.append(on_request_end)
     trace_config.on_request_exception.append(on_request_exception)
 
-    with mock.patch("aiohttp.client.TCPConnector.connect") as connect_patched:
+    with mock.patch("aiohttp.connector.TCPConnector.connect") as connect_patched:
         error = Exception()
         connect_patched.side_effect = error
 

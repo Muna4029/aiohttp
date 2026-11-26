@@ -82,7 +82,7 @@ _COOKIE_PATTERN = re.compile(
 )
 
 
-def preserve_morsel_with_coded_value(cookie: Morsel[str]) -> Morsel[str]:
+def preserve_morsel_with_coded_value(cookie: Morsel) -> Morsel:
     """
     Preserve a Morsel's coded_value exactly as received from the server.
 
@@ -101,7 +101,7 @@ def preserve_morsel_with_coded_value(cookie: Morsel[str]) -> Morsel[str]:
         A Morsel object with preserved coded_value
 
     """
-    mrsl_val = cast("Morsel[str]", cookie.get(cookie.key, Morsel()))
+    mrsl_val = cast(Morsel, cookie.get(cookie.key, Morsel()))
     # We use __setstate__ instead of the public set() API because it allows us to
     # bypass validation and set already validated state. This is more stable than
     # setting protected attributes directly and unlikely to change since it would
@@ -157,7 +157,7 @@ def _unquote(value: str) -> str:
     return _unquote_sub(_unquote_replace, value)
 
 
-def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
+def parse_cookie_header(header: str) -> list[tuple[str, Morsel]]:
     """
     Parse a Cookie header according to RFC 6265 Section 5.4.
 
@@ -177,7 +177,7 @@ def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
     if not header:
         return []
 
-    cookies: list[tuple[str, Morsel[str]]] = []
+    cookies: list[tuple[str, Morsel]] = []
     i = 0
     n = len(header)
 
@@ -197,7 +197,7 @@ def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
             continue
 
         # Create new morsel
-        morsel: Morsel[str] = Morsel()
+        morsel: Morsel = Morsel()
         # Preserve the original value as coded_value (with quotes if present)
         # We use __setstate__ instead of the public set() API because it allows us to
         # bypass validation and set already validated state. This is more stable than
@@ -212,7 +212,7 @@ def parse_cookie_header(header: str) -> list[tuple[str, Morsel[str]]]:
     return cookies
 
 
-def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[str]]]:
+def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel]]:
     """
     Parse cookie headers using a vendored version of SimpleCookie parsing.
 
@@ -231,7 +231,7 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
     This implementation handles unmatched quotes more gracefully to prevent cookie loss.
     See https://github.com/aio-libs/aiohttp/issues/7993
     """
-    parsed_cookies: list[tuple[str, Morsel[str]]] = []
+    parsed_cookies: list[tuple[str, Morsel]] = []
 
     for header in headers:
         if not header:
@@ -240,7 +240,7 @@ def parse_set_cookie_headers(headers: Sequence[str]) -> list[tuple[str, Morsel[s
         # Parse cookie string using SimpleCookie's algorithm
         i = 0
         n = len(header)
-        current_morsel: Morsel[str] | None = None
+        current_morsel: Morsel | None = None
         morsel_seen = False
 
         while 0 <= i < n:

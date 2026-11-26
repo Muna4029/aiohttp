@@ -253,7 +253,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
         self._tail = b""
         self._upgraded = False
         self._payload = None
-        self._payload_parser: HttpPayloadParser | None = None
+        self._payload_parser: "HttpPayloadParser | None" = None
         self._auto_decompress = auto_decompress
         self._limit = limit
         self._headers_parser = HeadersParser(max_line_size, max_field_size, self.lax)
@@ -274,7 +274,7 @@ class HttpParser(abc.ABC, Generic[_MsgT]):
                 self._lines.append(self._tail)
 
             if self._lines:
-                if self._lines[-1] != "\r\n":
+                if self._lines[-1] != b"\r\n":
                     self._lines.append(b"")
                 with suppress(Exception):
                     return self.parse_message(self._lines)

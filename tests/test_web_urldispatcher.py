@@ -227,7 +227,10 @@ async def test_follow_symlink_directory_traversal(
     await client.start_server()
     # We need to use a raw socket to test this, as the client will normalize
     # the path before sending it to the server.
-    reader, writer = await asyncio.open_connection(client.host, client.port)
+    # Use the actual bound socket address to avoid connection refused on some platforms.
+    sockname = client.server.sockets[0].getsockname()
+    conn_host, conn_port = sockname[0], sockname[1]
+    reader, writer = await asyncio.open_connection(conn_host, conn_port)
     writer.write(b"GET /../private_file HTTP/1.1\r\n\r\n")
     response = await reader.readuntil(b"\r\n\r\n")
     assert b"404 Not Found" in response
@@ -279,14 +282,19 @@ async def test_follow_symlink_directory_traversal_after_normalization(
     await client.start_server()
     # We need to use a raw socket to test this, as the client will normalize
     # the path before sending it to the server.
-    reader, writer = await asyncio.open_connection(client.host, client.port)
+    # Use the actual bound socket address to avoid connection refused on some platforms.
+    sockname = client.server.sockets[0].getsockname()
+    conn_host, conn_port = sockname[0], sockname[1]
+    reader, writer = await asyncio.open_connection(conn_host, conn_port)
     writer.write(b"GET /my_symlink/../private_file HTTP/1.1\r\n\r\n")
     response = await reader.readuntil(b"\r\n\r\n")
     assert b"404 Not Found" in response
     writer.close()
     await writer.wait_closed()
 
-    reader, writer = await asyncio.open_connection(client.host, client.port)
+    sockname = client.server.sockets[0].getsockname()
+    conn_host, conn_port = sockname[0], sockname[1]
+    reader, writer = await asyncio.open_connection(conn_host, conn_port)
     writer.write(b"GET /my_symlink/symlink_target_file HTTP/1.1\r\n\r\n")
     response = await reader.readuntil(b"\r\n\r\n")
     assert b"200 OK" in response
@@ -631,7 +639,11 @@ async def test_static_head(
 
     # Check that there is no content sent (see #4809). This can't easily be
     # done with aiohttp_client because the buffering can consume the content.
-    reader, writer = await asyncio.open_connection(client.host, client.port)
+    await client.start_server()
+    # Use the actual bound socket address to avoid connection refused on some platforms.
+    sockname = client.server.sockets[0].getsockname()
+    conn_host, conn_port = sockname[0], sockname[1]
+    reader, writer = await asyncio.open_connection(conn_host, conn_port)
     writer.write(b"HEAD /test.txt HTTP/1.1\r\n")
     writer.write(b"Host: localhost\r\n")
     writer.write(b"Connection: close\r\n")

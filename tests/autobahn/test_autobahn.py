@@ -55,6 +55,8 @@ def get_failed_tests(report_path: str, name: str) -> list[dict[str, Any]]:
 @pytest.mark.skipif(sys.platform == "darwin", reason="Don't run on macOS")
 @pytest.mark.xfail
 def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
+    autobahn_container = None
+    client = None
     try:
         print("Starting autobahn-testsuite server")
         autobahn_container = docker.run(
@@ -77,10 +79,21 @@ def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
         client.wait()
     finally:
         print("Stopping client and server")
-        client.terminate()
-        client.wait()
+        if client is not None:
+            try:
+                client.terminate()
+            except Exception:
+                pass
+            try:
+                client.wait()
+            except Exception:
+                pass
         # https://github.com/gabrieldemarmiesse/python-on-whales/pull/580
-        autobahn_container.stop()  # type: ignore[union-attr]
+        if autobahn_container is not None:
+            try:
+                autobahn_container.stop()  # type: ignore[union-attr]
+            except Exception:
+                pass
 
     failed_messages = get_failed_tests(f"{report_dir}/clients", "aiohttp")
 
@@ -96,13 +109,14 @@ def test_client(report_dir: Path, request: pytest.FixtureRequest) -> None:
 @pytest.mark.skipif(sys.platform == "darwin", reason="Don't run on macOS")
 @pytest.mark.xfail
 def test_server(report_dir: Path, request: pytest.FixtureRequest) -> None:
+    server = None
     try:
         print("Starting aiohttp test server")
         server = subprocess.Popen(
             [sys.executable] + ["tests/autobahn/server/server.py"]
         )
         print("Starting autobahn-testsuite client")
-        docker.run(
+        kwargs = dict(
             image="autobahn-testsuite",
             name="autobahn",
             remove=True,
@@ -110,7 +124,6 @@ def test_server(report_dir: Path, request: pytest.FixtureRequest) -> None:
                 (f"{request.path.parent}/server", "/config"),
                 (f"{report_dir}", "/reports"),
             ],
-            networks=["host"],
             command=[
                 "wait-for-it",
                 "-s",
@@ -123,10 +136,18 @@ def test_server(report_dir: Path, request: pytest.FixtureRequest) -> None:
                 "/config/fuzzingclient.json",
             ],
         )
+        # Avoid using Docker 'host' network on Windows where it is unsupported.
+        if sys.platform != "win32":
+            kwargs["networks"] = ["host"]
+        else:
+            # On Windows use published ports so the container can reach the server via forwarded port.
+            kwargs["publish"] = [(9001, 9001)]
+        docker.run(**kwargs)
     finally:
         print("Stopping client and server")
-        server.terminate()
-        server.wait()
+        if server is not None:
+            server.terminate()
+            server.wait()
 
     failed_messages = get_failed_tests(f"{report_dir}/servers", "AutobahnServer")
 

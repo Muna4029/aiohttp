@@ -66,7 +66,9 @@ def buf() -> bytearray:
 def protocol(
     loop: asyncio.AbstractEventLoop, transport: asyncio.Transport
 ) -> BaseProtocol:
-    protocol = mock.Mock()
+    from typing import cast
+
+    protocol = cast(BaseProtocol, mock.Mock())
     protocol.transport = transport
     protocol._drain_helper.return_value = loop.create_future()
     protocol._drain_helper.return_value.set_result(None)
@@ -93,7 +95,9 @@ def transport(buf: bytearray) -> mock.Mock:
 
 @pytest.fixture
 def conn(transport: asyncio.Transport, protocol: BaseProtocol) -> Connection:
-    return mock.Mock(transport=transport, protocol=protocol)
+    from typing import cast
+
+    return cast(Connection, mock.Mock(transport=transport, protocol=protocol))
 
 
 def test_method1(make_request: _RequestMaker) -> None:

@@ -154,7 +154,7 @@ class FormData:
         self._fields.clear()
         return self._writer
 
-    def __call__(self) -> Payload:
+    def __call__(self) -> Payload | multipart.MultipartWriter:
         if self._is_multipart:
             return self._gen_form_data()
         else:

@@ -303,7 +303,7 @@ def aiohttp_server(loop: asyncio.AbstractEventLoop) -> Iterator[AiohttpServer]:
     async def go(
         app: Application,
         *,
-        host: str = "127.0.0.1",
+        host: str = "localhost",
         port: int | None = None,
         **kwargs: Any,
     ) -> TestServer:
@@ -350,7 +350,7 @@ def aiohttp_raw_server(loop: asyncio.AbstractEventLoop) -> Iterator[AiohttpRawSe
 
 
 @pytest.fixture
-def aiohttp_client_cls() -> type[TestClient[Any, Any]]:
+def aiohttp_client_cls() -> type:
     """
     Client class to use in ``aiohttp_client`` factory.
 
@@ -412,6 +412,9 @@ def aiohttp_client(
         if isinstance(__param, Application):
             server_kwargs = server_kwargs or {}
             server = TestServer(__param, **server_kwargs)
+            # Ensure the server is started before creating the client to avoid
+            # connection races on platforms where localhost resolution differs.
+            await server.start_server()
             client = aiohttp_client_cls(server, **kwargs)
         elif isinstance(__param, BaseTestServer):
             client = aiohttp_client_cls(__param, **kwargs)

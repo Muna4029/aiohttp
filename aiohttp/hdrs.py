@@ -3,9 +3,13 @@
 # After changing the file content call ./tools/gen.py
 # to regenerate the headers parser
 import itertools
-from typing import Final
+from typing import Final, Set
 
-from multidict import istr
+# Use a local typing-compatible alias for multidict.istr to avoid depending on
+# third-party typing information.
+class istr(str):
+    """Lightweight stand-in for multidict.istr used for header constants."""
+    pass
 
 METH_ANY: Final[str] = "*"
 METH_CONNECT: Final[str] = "CONNECT"
@@ -18,7 +22,7 @@ METH_POST: Final[str] = "POST"
 METH_PUT: Final[str] = "PUT"
 METH_TRACE: Final[str] = "TRACE"
 
-METH_ALL: Final[set[str]] = {
+METH_ALL: Final[Set[str]] = {
     METH_CONNECT,
     METH_HEAD,
     METH_GET,

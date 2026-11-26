@@ -36,7 +36,7 @@ def make_handler() -> Callable[[web.Request], Awaitable[NoReturn]]:
     return handler
 
 
-def make_partial_handler() -> Callable[[web.Request], Awaitable[NoReturn]]:
+def make_partial_handler() -> Callable[..., Awaitable[NoReturn]]:
     async def handler(a: int, request: web.Request) -> NoReturn:
         assert False
 

@@ -8,7 +8,7 @@ import sys
 import tempfile
 import types
 from collections.abc import Iterator, Mapping, MutableMapping
-from re import Pattern
+from typing import Pattern
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Optional, cast
 from urllib.parse import parse_qsl

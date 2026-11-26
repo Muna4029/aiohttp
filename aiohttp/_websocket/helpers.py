@@ -2,9 +2,8 @@
 
 import functools
 import re
-from re import Pattern
 from struct import Struct
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Pattern
 
 from ..helpers import NO_EXTENSIONS
 from .models import WSHandshakeError

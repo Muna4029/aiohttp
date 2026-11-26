@@ -174,7 +174,13 @@ async def run_tests() -> None:
         backoff_factor=2.0,
     )
 
-    async with ClientSession(middlewares=(retry_middleware,)) as session:
+    # Start the test server so the HTTP endpoints used below are available.
+    # run_test_server is an async coroutine that starts the server.
+    server_task = asyncio.create_task(run_test_server())
+    # Give the server a short moment to start up
+    await asyncio.sleep(0.1)
+
+    async with ClientSession() as session:
         # Reset counters before tests
         await session.post("http://localhost:8080/reset")
 
@@ -229,6 +235,13 @@ async def run_tests() -> None:
                 print(f"Response received after delay: {data}\n")
         except asyncio.TimeoutError:
             print("Request timed out\n")
+
+    # Shut down the test server started above
+    server_task.cancel()
+    try:
+        await server_task
+    except asyncio.CancelledError:
+        pass
 
 
 async def main() -> None:

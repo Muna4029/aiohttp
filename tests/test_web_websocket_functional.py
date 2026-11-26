@@ -1164,12 +1164,12 @@ async def test_websocket_shutdown(aiohttp_client: AiohttpClient) -> None:
     """Test that the client websocket gets the close message when the server is shutting down."""
     url = "/ws"
     app = web.Application()
-    websockets = web.AppKey("websockets", weakref.WeakSet[web.WebSocketResponse])
+    websockets = web.AppKey("websockets", weakref.WeakSet)
     app[websockets] = weakref.WeakSet()
 
     # need for send signal shutdown server
     shutdown_websockets = web.AppKey(
-        "shutdown_websockets", weakref.WeakSet[web.WebSocketResponse]
+        "shutdown_websockets", weakref.WeakSet
     )
     app[shutdown_websockets] = weakref.WeakSet()
 

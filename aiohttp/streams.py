@@ -43,7 +43,7 @@ class AsyncStreamIterator(Generic[_T]):
             rv = await self.read_func()
         except EofStream:
             raise StopAsyncIteration
-        if rv == b"":
+        if rv == b"":  # type: ignore
             raise StopAsyncIteration
         return rv
 

@@ -9,7 +9,7 @@ websockets = web.AppKey("websockets", list[web.WebSocketResponse])
 
 async def wshandler(request: web.Request) -> web.WebSocketResponse:
     ws = web.WebSocketResponse(autoclose=False)
-    is_ws = ws.can_prepare(request)
+    is_ws = await ws.can_prepare(request)
     if not is_ws:
         raise web.HTTPBadRequest()
 

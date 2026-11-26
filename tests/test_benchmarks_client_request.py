@@ -39,7 +39,7 @@ def test_create_client_request_with_cookies(
     assert cookies["cookie"].value == "value"
     timer = TimerNoop()
     traces: list[Trace] = []
-    headers = CIMultiDict[str]()
+    headers = CIMultiDict()
 
     @benchmark
     def _run() -> None:
@@ -77,7 +77,7 @@ def test_create_client_request_with_headers(
     timer = TimerNoop()
     traces: list[Trace] = []
     headers = CIMultiDict({"header": "value", "another": "header"})
-    cookies = BaseCookie[str]()
+    cookies = BaseCookie()
 
     @benchmark
     def _run() -> None:

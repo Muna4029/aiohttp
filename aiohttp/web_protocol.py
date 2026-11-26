@@ -251,7 +251,11 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
         self.logger = logger
         self.access_log = access_log
         if access_log:
-            if issubclass(access_log_class, AbstractAsyncAccessLogger):
+            # access_log_class can be a union of types; ensure it's a type before
+            # calling issubclass to satisfy type checkers like mypy.
+            if isinstance(access_log_class, type) and issubclass(
+                access_log_class, AbstractAsyncAccessLogger
+            ):
                 self.access_logger: AbstractAsyncAccessLogger | None = (
                     access_log_class()
                 )
@@ -323,10 +327,11 @@ class RequestHandler(BaseProtocol, Generic[_Request]):
                     await self._handler_waiter
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 self._handler_waiter = None
+                task = asyncio.current_task()
                 if (
                     sys.version_info >= (3, 11)
-                    and (task := asyncio.current_task())
-                    and task.cancelling()
+                    and task is not None
+                    and task.cancelled()
                 ):
                     raise
         # Then cancel handler and wait

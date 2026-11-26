@@ -609,7 +609,6 @@ async def test_dns_resolver_manager_multiple_event_loops(
 @pytest.mark.skipif(not getaddrinfo, reason="aiodns >=3.2.0 required")
 async def test_dns_resolver_manager_weakref_garbage_collection() -> None:
     """Test that release_resolver handles None resolver due to weakref garbage collection."""
-    manager = _DNSResolverManager()
 
     # Create a mock resolver that will be None when accessed
     mock_resolver = Mock()
@@ -619,6 +618,9 @@ async def test_dns_resolver_manager_weakref_garbage_collection() -> None:
         # Create an AsyncResolver to get a resolver from the manager
         resolver = AsyncResolver()
         loop = asyncio.get_running_loop()
+
+        # Use the same manager instance that the resolver registered with
+        manager = resolver._manager  # type: ignore[attr-defined]
 
         # Manually corrupt the data to simulate garbage collection
         # by setting the resolver to None
@@ -635,12 +637,14 @@ async def test_dns_resolver_manager_weakref_garbage_collection() -> None:
 @pytest.mark.skipif(not getaddrinfo, reason="aiodns >=3.2.0 required")
 async def test_dns_resolver_manager_missing_loop_data() -> None:
     """Test that release_resolver handles missing loop data gracefully."""
-    manager = _DNSResolverManager()
 
     with patch("aiodns.DNSResolver"):
         # Create an AsyncResolver
         resolver = AsyncResolver()
         loop = asyncio.get_running_loop()
+
+        # Use the same manager instance that the resolver registered with
+        manager = resolver._manager  # type: ignore[attr-defined]
 
         # Manually remove the loop data to simulate race condition
         manager._loop_data.clear()

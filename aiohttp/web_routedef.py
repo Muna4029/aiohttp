@@ -39,7 +39,7 @@ class AbstractRouteDef(abc.ABC):
         """Register itself into the given router."""
 
 
-_HandlerType = Union[type[AbstractView], Handler]
+_HandlerType = Union[Type[AbstractView], Handler]
 
 
 @dataclasses.dataclass(frozen=True, repr=False)

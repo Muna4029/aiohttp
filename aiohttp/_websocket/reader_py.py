@@ -180,7 +180,8 @@ class WebSocketReader:
             self._feed_data(data)
         except Exception as exc:
             self._exc = exc
-            set_exception(self.queue, exc)
+            # Call the queue instance method to report the exception
+            self.queue.set_exception(exc)
             return EMPTY_FRAME_ERROR
 
         return EMPTY_FRAME

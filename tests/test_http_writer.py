@@ -2,8 +2,7 @@
 import array
 import asyncio
 import zlib
-from collections.abc import Generator, Iterable
-from typing import Any
+from typing import Any, Generator, Iterable, Union, cast
 from unittest import mock
 
 import pytest
@@ -67,7 +66,7 @@ def decompress(data: bytes) -> bytes:
     return d.decompress(data)
 
 
-def decode_chunked(chunked: bytes | bytearray) -> bytes:
+def decode_chunked(chunked: Union[bytes, bytearray]) -> bytes:
     i = 0
     out = b""
     while i < len(chunked):
@@ -1204,7 +1203,7 @@ async def test_compression_with_content_length_constraint(
     """Test compression respects content length constraints."""
     msg = http.StreamWriter(protocol, loop)
     msg.enable_compression("deflate")
-    msg.length = 5  # Set small content length
+    cast(Any, msg).length = 5  # Set small content length
     headers = CIMultiDict({"Content-Length": "5"})
 
     await msg.write_headers("POST /data HTTP/1.1", headers)
@@ -1434,7 +1433,7 @@ async def test_write_drain_condition_with_small_buffer(
     msg.send_headers()  # Send headers to start with clean state
 
     # Reset buffer size manually since send_headers doesn't do it
-    msg.buffer_size = 0
+    cast(Any, msg).buffer_size = 0
 
     # Reset drain helper mock
     protocol._drain_helper.reset_mock()  # type: ignore[attr-defined]
@@ -1445,7 +1444,7 @@ async def test_write_drain_condition_with_small_buffer(
 
     # Drain should NOT be called because buffer_size <= LIMIT
     assert not protocol._drain_helper.called  # type: ignore[attr-defined]
-    assert msg.buffer_size == 100
+    assert cast(Any, msg).buffer_size == 100
     assert small_data in buf
 
 

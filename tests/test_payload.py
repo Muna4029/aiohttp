@@ -27,7 +27,7 @@ class BufferWriter(AbstractStreamWriter):
     ) -> None:
         self.buffer.extend(bytes(chunk))
 
-    async def write_eof(self, chunk: bytes = b"") -> None:
+    async def write_eof(self, chunk: bytes | None = None) -> None:
         """No-op for test writer."""
 
     async def drain(self) -> None:
@@ -47,7 +47,7 @@ class BufferWriter(AbstractStreamWriter):
 
 @pytest.fixture(autouse=True)
 def cleanup(
-    cleanup_payload_pending_file_closes: None,
+    cleanup_payload_pending_file_closes,
 ) -> None:
     """Ensure all pending file close operations complete during test teardown."""
 

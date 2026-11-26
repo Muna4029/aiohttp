@@ -12,16 +12,12 @@ from aiohttp import (
     ClientRequest,
     ClientResponse,
     ClientSession,
-    ClientTimeout,
     TCPConnector,
     web,
 )
-from aiohttp.abc import ResolveResult
 from aiohttp.client_middlewares import build_client_middlewares
-from aiohttp.client_proto import ResponseHandler
 from aiohttp.pytest_plugin import AiohttpServer
 from aiohttp.resolver import ThreadedResolver
-from aiohttp.tracing import Trace
 
 
 class BlockedByMiddleware(ClientError):
@@ -146,7 +142,7 @@ async def test_client_middleware_per_request(aiohttp_server: AiohttpServer) -> N
 
 async def test_multiple_client_middlewares(aiohttp_server: AiohttpServer) -> None:
     """Test that multiple middlewares are executed in order."""
-    calls: list[str] = []
+    calls = []
 
     async def handler(request: web.Request) -> web.Response:
         return web.Response(text="OK")
@@ -284,8 +280,8 @@ async def test_client_middleware_challenge_auth(aiohttp_server: AiohttpServer) -
 
 async def test_client_middleware_multi_step_auth(aiohttp_server: AiohttpServer) -> None:
     """Test middleware with multi-step authentication flow."""
-    auth_state: dict[str, int] = {}
-    middleware_state: dict[str, int | str | None] = {
+    auth_state = {}
+    middleware_state = {
         "step": 0,
         "session": None,
         "challenge": None,
@@ -372,7 +368,7 @@ async def test_client_middleware_conditional_retry(
 ) -> None:
     """Test middleware with conditional retry based on response content."""
     request_count = 0
-    token_state: dict[str, str | bool] = {
+    token_state = {
         "token": "old-token",
         "refreshed": False,
     }
@@ -735,7 +731,7 @@ async def test_client_middleware_blocks_connection_before_established(
 ) -> None:
     """Test that middleware can block connections before they are established."""
     blocked_hosts = {"blocked.example.com", "evil.com"}
-    connection_attempts: list[str] = []
+    connection_attempts = []
 
     async def handler(request: web.Request) -> web.Response:
         return web.Response(text="Reached")
@@ -817,7 +813,7 @@ async def test_client_middleware_blocks_connection_without_dns_lookup(
             hostname: str,
             port: int = 0,
             family: socket.AddressFamily = socket.AF_INET,
-        ) -> list[ResolveResult]:
+        ):
             dns_lookups_made.append(hostname)
             return await super().resolve(hostname, port, family)
 
@@ -877,9 +873,7 @@ async def test_client_middleware_retry_reuses_connection(
 
         connection_attempts = 0
 
-        async def _create_connection(
-            self, req: ClientRequest, traces: list["Trace"], timeout: "ClientTimeout"
-        ) -> ResponseHandler:
+        async def _create_connection(self, req, traces, timeout):
             self.connection_attempts += 1
             return await super()._create_connection(req, traces, timeout)
 
@@ -1061,8 +1055,8 @@ async def test_middleware_can_check_request_body(
     aiohttp_server: AiohttpServer,
 ) -> None:
     """Test that middleware can check request body."""
-    received_bodies: list[str] = []
-    received_headers: list[dict[str, str]] = []
+    received_bodies = []
+    received_headers = []
 
     async def handler(request: web.Request) -> web.Response:
         """Server handler that receives requests."""

@@ -1,5 +1,7 @@
 """HTTP Client for asyncio."""
 
+from __future__ import annotations
+
 import asyncio
 import base64
 import dataclasses
@@ -1354,13 +1356,13 @@ class ClientSession:
 class _BaseRequestContextManager(Coroutine[Any, Any, _RetType], Generic[_RetType]):
     __slots__ = ("_coro", "_resp")
 
-    def __init__(self, coro: Coroutine["asyncio.Future[Any]", None, _RetType]) -> None:
-        self._coro: Coroutine[asyncio.Future[Any], None, _RetType] = coro
+    def __init__(self, coro: Coroutine[Any, Any, _RetType]) -> None:
+        self._coro: Coroutine[Any, Any, _RetType] = coro
 
-    def send(self, arg: None) -> "asyncio.Future[Any]":
+    def send(self, arg: None) -> Any:
         return self._coro.send(arg)
 
-    def throw(self, *args: Any, **kwargs: Any) -> "asyncio.Future[Any]":
+    def throw(self, *args: Any, **kwargs: Any) -> Any:
         return self._coro.throw(*args, **kwargs)
 
     def close(self) -> None:
@@ -1395,10 +1397,10 @@ class _SessionRequestContextManager:
 
     def __init__(
         self,
-        coro: Coroutine["asyncio.Future[Any]", None, ClientResponse],
+        coro: Coroutine[Any, Any, ClientResponse],
         session: ClientSession,
     ) -> None:
-        self._coro = coro
+        self._coro: Coroutine[Any, Any, ClientResponse] = coro
         self._resp: ClientResponse | None = None
         self._session = session
 

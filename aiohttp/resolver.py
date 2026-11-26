@@ -113,7 +113,14 @@ class AsyncResolver(AbstractResolver):
                 flags=_AI_ADDRCONFIG,
             )
         except aiodns.error.DNSError as exc:
-            msg = exc.args[1] if len(exc.args) >= 1 else "DNS lookup failed"
+            # Safely extract message from aiodns exception args.
+            # exc.args may be empty, length 1 or length >=2 depending on upstream.
+            if len(exc.args) >= 2:
+                msg = exc.args[1]
+            elif len(exc.args) == 1:
+                msg = exc.args[0]
+            else:
+                msg = "DNS lookup failed"
             raise OSError(None, msg) from exc
         hosts: list[ResolveResult] = []
         for node in resp.nodes:
@@ -161,7 +168,12 @@ class AsyncResolver(AbstractResolver):
             return
         # Otherwise cancel our dedicated resolver
         if self._resolver is not None:
-            self._resolver.cancel()
+            # Some resolver implementations (or mocked resolvers in tests)
+            # may not provide a cancel() method. Guard the call to avoid
+            # raising AttributeError during cleanup.
+            cancel = getattr(self._resolver, "cancel", None)
+            if callable(cancel):
+                cancel()
         self._resolver = None  # type: ignore[assignment] # Clear reference
 
 
@@ -232,5 +244,7 @@ class _DNSResolverManager:
             del self._loop_data[loop]
 
 
-_DefaultType = type[AsyncResolver | ThreadedResolver]
+from typing import Type, Union
+
+_DefaultType = Type[Union[AsyncResolver, ThreadedResolver]]
 DefaultResolver: _DefaultType = AsyncResolver if aiodns_default else ThreadedResolver

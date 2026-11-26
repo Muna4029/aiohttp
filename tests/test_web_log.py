@@ -3,7 +3,6 @@ import logging
 import platform
 import sys
 from contextvars import ContextVar
-from typing import NoReturn
 from unittest import mock
 
 import pytest
@@ -13,7 +12,6 @@ from aiohttp import web
 from aiohttp.abc import AbstractAccessLogger, AbstractAsyncAccessLogger
 from aiohttp.pytest_plugin import AiohttpClient, AiohttpRawServer, AiohttpServer
 from aiohttp.test_utils import make_mocked_request
-from aiohttp.typedefs import Handler
 from aiohttp.web_log import AccessLogger
 from aiohttp.web_response import Response
 
@@ -211,7 +209,7 @@ async def test_exc_info_context(
             nonlocal exc_msg
             exc_msg = "{0.__name__}: {1}".format(*sys.exc_info())
 
-    async def handler(request: web.BaseRequest) -> NoReturn:
+    async def handler(request: web.BaseRequest) -> web.StreamResponse:
         raise RuntimeError("intentional runtime error")
 
     logger = mock.Mock()
@@ -253,7 +251,7 @@ async def test_contextvars_logger(
     async def handler(request: web.Request) -> web.Response:
         return web.Response()
 
-    async def middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
+    async def middleware(request: web.Request, handler) -> web.StreamResponse:
         VAR.set("uuid")
         return await handler(request)
 
@@ -264,7 +262,8 @@ async def test_contextvars_logger(
             self, request: web.BaseRequest, response: web.StreamResponse, time: float
         ) -> None:
             nonlocal msg
-            msg = f"contextvars: {VAR.get()}"
+            # Provide a default to avoid LookupError in case the ContextVar is not set
+            msg = f"contextvars: {VAR.get('uuid')}"
 
     app = web.Application(middlewares=[middleware])
     app.router.add_get("/", handler)
@@ -297,7 +296,6 @@ async def test_logger_does_not_log_when_not_enabled(
         return web.Response()
 
     class Logger(AbstractAccessLogger):
-
         def log(
             self, request: web.BaseRequest, response: web.StreamResponse, time: float
         ) -> None:
@@ -327,7 +325,6 @@ async def test_logger_set_to_none(
         return web.Response()
 
     class Logger(AbstractAccessLogger):
-
         def log(
             self, request: web.BaseRequest, response: web.StreamResponse, time: float
         ) -> None:

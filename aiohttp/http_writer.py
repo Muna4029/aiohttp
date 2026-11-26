@@ -46,10 +46,7 @@ HttpVersion11 = HttpVersion(1, 1)
 
 
 _T_OnChunkSent = Optional[
-    Callable[
-        [Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]],
-        Awaitable[None],
-    ]
+    Callable[[Union[bytes, bytearray, memoryview]], Awaitable[None]]
 ]
 _T_OnHeadersSent = Optional[Callable[["CIMultiDict[str]"], Awaitable[None]]]
 
@@ -72,6 +69,9 @@ class StreamWriter(AbstractStreamWriter):
         self.loop = loop
         self._on_chunk_sent: _T_OnChunkSent = on_chunk_sent
         self._on_headers_sent: _T_OnHeadersSent = on_headers_sent
+        # Track buffered data sizes for backpressure/drain logic
+        self.buffer_size: int = 0
+        self.output_size: int = 0
         self._headers_buf: bytes | None = None
         self._headers_written: bool = False
 
@@ -92,7 +92,7 @@ class StreamWriter(AbstractStreamWriter):
         self._compress = ZLibCompressor(encoding=encoding, strategy=strategy)
 
     def _write(
-        self, chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
+        self, chunk: Union[bytes, bytearray, memoryview]
     ) -> None:
         size = len(chunk)
         self.buffer_size += size
@@ -104,9 +104,7 @@ class StreamWriter(AbstractStreamWriter):
 
     def _writelines(
         self,
-        chunks: Iterable[
-            Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
-        ],
+        chunks: Iterable[Union[bytes, bytearray, memoryview]],
     ) -> None:
         size = 0
         for chunk in chunks:
@@ -122,7 +120,7 @@ class StreamWriter(AbstractStreamWriter):
             transport.writelines(chunks)
 
     def _write_chunked_payload(
-        self, chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"]
+        self, chunk: Union[bytes, bytearray, memoryview]
     ) -> None:
         """Write a chunk with proper chunked encoding."""
         chunk_len_pre = f"{len(chunk):x}\r\n".encode("ascii")
@@ -130,7 +128,7 @@ class StreamWriter(AbstractStreamWriter):
 
     def _send_headers_with_payload(
         self,
-        chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"],
+        chunk: Union[bytes, bytearray, memoryview],
         is_eof: bool,
     ) -> None:
         """Send buffered headers with payload, coalescing into single write."""
@@ -166,7 +164,7 @@ class StreamWriter(AbstractStreamWriter):
 
     async def write(
         self,
-        chunk: Union[bytes, bytearray, "memoryview[int]", "memoryview[bytes]"],
+        chunk: Union[bytes, bytearray, memoryview],
         *,
         drain: bool = True,
         LIMIT: int = 0x10000,

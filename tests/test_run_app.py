@@ -83,7 +83,7 @@ def patched_loop(
             yield loop
 
 
-def stopper(loop: asyncio.AbstractEventLoop) -> Callable[[], None]:
+def stopper(loop: asyncio.AbstractEventLoop) -> Callable[..., None]:
     def raiser() -> NoReturn:
         raise KeyboardInterrupt
 
@@ -164,7 +164,7 @@ mock_server_default_8989 = [
 ]
 mock_socket = mock.Mock(getsockname=lambda: ("mock-socket", 123))
 mixed_bindings_tests: tuple[
-    tuple[str, dict[str, Any], list[mock._Call], list[mock._Call]], ...
+    tuple[str, dict[str, Any], list[Any], list[Any]], ...
 ] = (
     (
         "Nothing Specified",

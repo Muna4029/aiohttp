@@ -276,7 +276,9 @@ def proxy_test_server(
 
     _patch_ssl_transport(monkeypatch)
 
-    default_response = _ResponseArgs(status=200, headers=None, body=None)
+    # Use a plain dict for the default response so runtime dict operations
+    # like .copy() and .update() are accepted by mypy.
+    default_response: dict = {"status": 200, "headers": None, "body": None}
 
     proxy_mock = mock.Mock()
 
@@ -286,7 +288,7 @@ def proxy_test_server(
 
         response = default_response.copy()
         if isinstance(proxy_mock.return_value, dict):
-            response.update(proxy_mock.return_value)  # type: ignore[typeddict-item]
+            response.update(proxy_mock.return_value)
 
         headers = response["headers"]
         if not headers:

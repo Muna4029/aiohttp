@@ -8,8 +8,6 @@ import pytest
 
 import aiohttp
 from aiohttp import (
-    ClientConnectionResetError,
-    ServerTimeoutError,
     WSMessageTypeError,
     WSMsgType,
     hdrs,
@@ -18,7 +16,6 @@ from aiohttp import (
 from aiohttp._websocket.models import WSMessageBinary
 from aiohttp._websocket.reader import WebSocketDataQueue
 from aiohttp.client_ws import ClientWSTimeout
-from aiohttp.http import WSCloseCode
 from aiohttp.pytest_plugin import AiohttpClient, AiohttpServer
 
 if sys.version_info >= (3, 11):
@@ -778,18 +775,22 @@ async def test_heartbeat_connection_closed(aiohttp_client: AiohttpClient) -> Non
     assert resp._conn is not None
     with (
         mock.patch.object(
-            resp._conn.transport, "write", side_effect=ClientConnectionResetError
+            resp._conn.transport,
+            "write",
+            side_effect=aiohttp.ClientConnectionResetError,
         ),
         mock.patch.object(
             resp._writer, "send_frame", wraps=resp._writer.send_frame
         ) as send_frame,
     ):
         await resp.receive()
-        ping_count = send_frame.call_args_list.count(mock.call(b"", WSMsgType.PING))
+        ping_count = send_frame.call_args_list.count(
+            mock.call(b"", aiohttp.WSMsgType.PING)
+        )
     # Connection should be closed roughly after 1.5x heartbeat.
     await asyncio.sleep(0.2)
     assert ping_count == 1
-    assert resp.close_code is WSCloseCode.ABNORMAL_CLOSURE
+    assert resp.close_code is aiohttp.WSCloseCode.ABNORMAL_CLOSURE
 
 
 async def test_heartbeat_no_pong(aiohttp_client: AiohttpClient) -> None:
@@ -815,7 +816,7 @@ async def test_heartbeat_no_pong(aiohttp_client: AiohttpClient) -> None:
     # Connection should be closed roughly after 1.5x heartbeat.
     await asyncio.sleep(0.2)
     assert ping_received
-    assert resp.close_code is WSCloseCode.ABNORMAL_CLOSURE
+    assert resp.close_code is aiohttp.WSCloseCode.ABNORMAL_CLOSURE
 
 
 async def test_heartbeat_no_pong_after_receive_many_messages(
@@ -851,7 +852,7 @@ async def test_heartbeat_no_pong_after_receive_many_messages(
 
     await asyncio.sleep(0.2)
     assert ping_received
-    assert resp.close_code is WSCloseCode.ABNORMAL_CLOSURE
+    assert resp.close_code is aiohttp.WSCloseCode.ABNORMAL_CLOSURE
 
 
 async def test_heartbeat_no_pong_after_send_many_messages(
@@ -887,7 +888,7 @@ async def test_heartbeat_no_pong_after_send_many_messages(
     # Connection should be closed roughly after 1.5x heartbeat.
     await asyncio.sleep(0.2)
     assert ping_received
-    assert resp.close_code is WSCloseCode.ABNORMAL_CLOSURE
+    assert resp.close_code is aiohttp.WSCloseCode.ABNORMAL_CLOSURE
 
 
 async def test_heartbeat_no_pong_concurrent_receive(
@@ -922,9 +923,9 @@ async def test_heartbeat_no_pong_concurrent_receive(
         # Connection should be closed roughly after 1.5x heartbeat.
         msg = await resp.receive(5.0)
         assert ping_received
-        assert resp.close_code is WSCloseCode.ABNORMAL_CLOSURE
-        assert msg.type is WSMsgType.ERROR
-        assert isinstance(msg.data, ServerTimeoutError)
+        assert resp.close_code is aiohttp.WSCloseCode.ABNORMAL_CLOSURE
+        assert msg.type is aiohttp.WSMsgType.ERROR
+        assert isinstance(msg.data, aiohttp.ServerTimeoutError)
         assert str(msg.data) == "No PONG received after 0.05 seconds"
 
 
@@ -1079,7 +1080,7 @@ async def test_ws_async_with(aiohttp_server: AiohttpServer) -> None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         msg = await ws.receive()
-        assert msg.type is WSMsgType.TEXT
+        assert msg.type is aiohttp.WSMsgType.TEXT
         await ws.send_str(msg.data + "/answer")
         await ws.close()
         return ws
@@ -1105,7 +1106,7 @@ async def test_ws_async_with_send(aiohttp_server: AiohttpServer) -> None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         msg = await ws.receive()
-        assert msg.type is WSMsgType.TEXT
+        assert msg.type is aiohttp.WSMsgType.TEXT
         await ws.send_str(msg.data + "/answer")
         await ws.close()
         return ws
@@ -1129,7 +1130,7 @@ async def test_ws_async_with_shortcut(aiohttp_server: AiohttpServer) -> None:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         msg = await ws.receive()
-        assert msg.type is WSMsgType.TEXT
+        assert msg.type is aiohttp.WSMsgType.TEXT
         await ws.send_str(msg.data + "/answer")
         await ws.close()
         return ws

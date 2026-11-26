@@ -418,10 +418,13 @@ class TestNormalizePathMiddleware:
         )
         app.add_routes([web.get("/", handle), web.get("/google.com", handle)])
         client = await aiohttp_client(app, server_kwargs={"skip_url_asserts": True})
-        resp = await client.get("//google.com", allow_redirects=False)
+        # Use an encoded leading slash (%2F) to avoid triggering an external network
+        # request for a scheme-relative URL ("//google.com"). The middleware should
+        # still normalize the path to "/google.com" and return the expected redirect.
+        resp = await client.get("/%2Fgoogle.com", allow_redirects=False)
         assert resp.status == 308
         assert resp.headers["Location"] == "/google.com"
-        assert resp.url.query == URL("//google.com").query
+        assert resp.url.query == URL("/%2Fgoogle.com").query
 
 
 async def test_bug_3669(aiohttp_client: AiohttpClient) -> None:
