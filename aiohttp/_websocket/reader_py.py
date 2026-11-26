@@ -104,7 +104,10 @@ class WebSocketDataQueue:
         self._size += size
         self._put_buffer((data, size))
         self._release_waiter()
-        if self._size > self._limit and not self._protocol._reading_paused:
+        # Avoid direct access to protected attribute _reading_paused on the
+        # protocol (to prevent __slots__/slotscheck issues). Call pause_reading
+        # if the protocol provides it.
+        if self._size > self._limit and hasattr(self._protocol, "pause_reading"):
             self._protocol.pause_reading()
 
     async def read(self) -> WSMessage:
@@ -122,7 +125,9 @@ class WebSocketDataQueue:
         if self._buffer:
             data, size = self._get_buffer()
             self._size -= size
-            if self._size < self._limit and self._protocol._reading_paused:
+            # Avoid direct access to protected attribute _reading_paused on the
+            # protocol. Call resume_reading if the protocol provides it.
+            if self._size < self._limit and hasattr(self._protocol, "resume_reading"):
                 self._protocol.resume_reading()
             return data
         if self._exception is not None:
