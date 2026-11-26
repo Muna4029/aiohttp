@@ -2026,9 +2026,7 @@ async def test_POST_FILES_SINGLE_content_disposition(
             "application/octet-stream",
             "text/x-python",
         ]
-        assert request.headers["content-disposition"] == (
-            'inline; filename="conftest.py"'
-        )
+        assert request.headers.get("content-disposition") == 'inline; filename="conftest.py"'
 
         return web.Response()
 
@@ -2231,7 +2229,8 @@ async def test_expect_continue(aiohttp_client: AiohttpClient) -> None:
 
     async def expect_handler(request: web.Request) -> None:
         nonlocal expect_called
-        expect = request.headers[hdrs.EXPECT]
+        expect = request.headers.get(hdrs.EXPECT)
+        assert expect is not None, "Expect header is missing"
         assert expect.lower() == "100-continue"
         assert request.transport is not None
         request.transport.write(b"HTTP/1.1 100 Continue\r\n\r\n")
@@ -3312,7 +3311,7 @@ async def test_drop_auth_on_redirect_to_other_host(
 
     async def srv_from(request: web.Request) -> NoReturn:
         assert request.host == url_from.host
-        assert request.headers["Authorization"] == "Basic dXNlcjpwYXNz"
+        assert request.headers.get("Authorization") == "Basic dXNlcjpwYXNz"
         raise web.HTTPFound(url_to)
 
     async def srv_to(request: web.Request) -> web.Response:
@@ -3346,7 +3345,8 @@ async def test_drop_auth_on_redirect_to_other_host(
             port: int = 0,
             family: socket.AddressFamily = socket.AF_INET,
         ) -> list[ResolveResult]:
-            server = etc_hosts[(host, port)]
+            server = etc_hosts.get((host, port))
+            assert server is not None, f"No server for {(host, port)}"
             assert server.port is not None
 
             return [
@@ -3386,7 +3386,7 @@ async def test_auth_persist_on_redirect_to_other_host_with_global_auth(
 
     async def srv_from(request: web.Request) -> NoReturn:
         assert request.host == url_from.host
-        assert request.headers["Authorization"] == "Basic dXNlcjpwYXNz"
+        assert request.headers.get("Authorization") == "Basic dXNlcjpwYXNz"
         raise web.HTTPFound(url_to)
 
     async def srv_to(request: web.Request) -> web.Response:
@@ -3417,7 +3417,8 @@ async def test_auth_persist_on_redirect_to_other_host_with_global_auth(
             port: int = 0,
             family: socket.AddressFamily = socket.AF_INET,
         ) -> list[ResolveResult]:
-            server = etc_hosts[(host, port)]
+            server = etc_hosts.get((host, port))
+            assert server is not None, f"No server for {(host, port)}"
             assert server.port is not None
 
             return [
@@ -3729,7 +3730,7 @@ async def test_session_auth(
     async with client.get("/") as r:
         assert r.status == 200
         content = await r.json()
-    assert content["headers"]["Authorization"] == "Basic bG9naW46cGFzcw=="
+    assert content["headers"].get("Authorization") == "Basic bG9naW46cGFzcw=="
 
 
 async def test_session_auth_override(
@@ -3742,7 +3743,7 @@ async def test_session_auth_override(
     async with client.get("/", auth=aiohttp.BasicAuth("other_login", "pass")) as r:
         assert r.status == 200
         content = await r.json()
-    val = content["headers"]["Authorization"]
+    val = content["headers"].get("Authorization")
     assert val == "Basic b3RoZXJfbG9naW46cGFzcw=="
 
 
@@ -3771,7 +3772,7 @@ async def test_netrc_auth_from_env(  # type: ignore[misc]
         assert r.status == 200
         content = await r.json()
     # Base64 encoded "netrc_user:netrc_pass" is "bmV0cmNfdXNlcjpuZXRyY19wYXNz"
-    assert content["headers"]["Authorization"] == "Basic bmV0cmNfdXNlcjpuZXRyY19wYXNz"
+    assert content["headers"].get("Authorization") == "Basic bmV0cmNfdXNlcjpuZXRyY19wYXNz"
 
 
 @pytest.mark.usefixtures("no_netrc")
@@ -3800,7 +3801,7 @@ async def test_netrc_auth_from_home_directory(  # type: ignore[misc]
     async with client.get("/") as r:
         assert r.status == 200
         content = await r.json()
-    assert content["headers"]["Authorization"] == "Basic bmV0cmNfdXNlcjpuZXRyY19wYXNz"
+    assert content["headers"].get("Authorization") == "Basic bmV0cmNfdXNlcjpuZXRyY19wYXNz"
 
 
 @pytest.mark.usefixtures("netrc_default_contents")
@@ -3819,7 +3820,7 @@ async def test_netrc_auth_overridden_by_explicit_auth(  # type: ignore[misc]
         content = await r.json()
     # Base64 encoded "explicit_user:explicit_pass" is "ZXhwbGljaXRfdXNlcjpleHBsaWNpdF9wYXNz"
     assert (
-        content["headers"]["Authorization"]
+        content["headers"].get("Authorization")
         == "Basic ZXhwbGljaXRfdXNlcjpleHBsaWNpdF9wYXNz"
     )
 
