@@ -73,7 +73,10 @@ def mock_sha1_digest() -> Generator[mock.MagicMock, None, None]:
     """Mock SHA1 to return a predictable value for testing."""
     mock_digest = mock.MagicMock(spec=sha1())
     mock_digest.hexdigest.return_value = "deadbeefcafebabe"
-    with mock.patch("hashlib.sha1", return_value=mock_digest) as patched:
+    # Patch the sha1 symbol where the code under test actually looks it up
+    # so that the DigestAuthMiddleware and related helpers use the mocked
+    # digest implementation.
+    with mock.patch("aiohttp.client_middleware_digest_auth.sha1", return_value=mock_digest) as patched:
         yield patched
 
 
@@ -82,7 +85,10 @@ def mock_md5_digest() -> Generator[mock.MagicMock, None, None]:
     """Mock MD5 to return a predictable value for testing."""
     mock_digest = mock.MagicMock(spec=md5())
     mock_digest.hexdigest.return_value = "abcdef0123456789"
-    with mock.patch("hashlib.md5", return_value=mock_digest) as patched:
+    # Patch the md5 symbol where the code under test actually looks it up
+    # so that the DigestAuthMiddleware and related helpers use the mocked
+    # digest implementation.
+    with mock.patch("aiohttp.client_middleware_digest_auth.md5", return_value=mock_digest) as patched:
         yield patched
 
 
@@ -1315,13 +1321,11 @@ async def test_case_sensitive_algorithm_server(
     app.router.add_get("/api/test", handler)
     server = await aiohttp_server(app)
 
-    async with (
-        ClientSession(middlewares=(digest_auth_mw,)) as session,
-        session.get(server.make_url("/api/test")) as resp,
-    ):
-        assert resp.status == 200
-        text = await resp.text()
-        assert text == "Success"
+    async with ClientSession(middlewares=(digest_auth_mw,)) as session:
+        async with session.get(server.make_url("/api/test")) as resp:
+            assert resp.status == 200
+            text = await resp.text()
+            assert text == "Success"
 
     # Verify the middleware preserved the exact algorithm case
     assert request_count == 2  # Initial 401 + successful retry

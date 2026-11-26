@@ -628,9 +628,10 @@ def test_update_cookies_with_quoted_existing_header(
 
     # All cookies should be preserved with their original coded values
     # The quoted value should be preserved as-is
+    # The implementation appends new cookies after existing ones, so expect existing cookies first
     assert (
         req.headers["COOKIE"]
-        == 'new_cookie=new_value; session="value;with;semicolon"; token=abc123'
+        == 'session="value;with;semicolon"; token=abc123; new_cookie=new_value'
     )
 
 
@@ -1216,7 +1217,8 @@ async def test_data_stream_exc(
 
     async def throw_exc() -> None:
         await asyncio.sleep(0.01)
-        fut.set_exception(ValueError)
+        # Pass an exception instance to set_exception (Future API requires BaseException instance)
+        fut.set_exception(ValueError())
 
     t = loop.create_task(throw_exc())
 

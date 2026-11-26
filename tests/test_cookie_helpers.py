@@ -44,7 +44,7 @@ def test_bool_attrs_is_superset_of_morsel_flags() -> None:
 def test_preserve_morsel_with_coded_value() -> None:
     """Test preserve_morsel_with_coded_value preserves coded_value exactly."""
     # Create a cookie with a coded_value different from value
-    cookie: Morsel[str] = Morsel()
+    cookie: Morsel = Morsel()
     cookie.set("test_cookie", "decoded value", "encoded%20value")
 
     # Preserve the coded_value
@@ -61,7 +61,7 @@ def test_preserve_morsel_with_coded_value() -> None:
 
 def test_preserve_morsel_with_coded_value_no_coded_value() -> None:
     """Test preserve_morsel_with_coded_value when coded_value is same as value."""
-    cookie: Morsel[str] = Morsel()
+    cookie: Morsel = Morsel()
     cookie.set("test_cookie", "simple_value", "simple_value")
 
     result = preserve_morsel_with_coded_value(cookie)
